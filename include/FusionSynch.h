@@ -1,8 +1,11 @@
+#pragma once
+
 #include <ros/ros.h>
-#include <sgtdv_msgs/FusionMsg.h>
 #include <sgtdv_msgs/ConeArr.h>
 #include <sgtdv_msgs/Point2DArr.h>
 #include "../include/Fusion.h"
+#include "../include/Messages.h"
+
 
 class FusionSynch
 {
@@ -18,6 +21,5 @@ private:
     Fusion m_fusion;
     bool m_cameraReady;
     bool m_lidarReady;
-    sgtdv_msgs::ConeArr::ConstPtr m_cameraData;
-    sgtdv_msgs::Point2DArr::ConstPtr m_lidarData;
+    FusionMsg m_fusionMsg;
 };

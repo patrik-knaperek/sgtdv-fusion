@@ -1,6 +1,11 @@
+#pragma once
+
 #include <ros/ros.h>
-#include <sgtdv_msgs/FusionMsg.h>
 #include <cmath>
+#include <sgtdv_msgs/ConeArr.h>
+#include <sgtdv_msgs/Point2DArr.h>
+#include "../include/Messages.h"
+
 
 class Fusion
 {
@@ -9,7 +14,7 @@ public:
     ~Fusion();
 
     void SetPublisher(ros::Publisher publisher);
-    void Do(const sgtdv_msgs::FusionMsgPtr &msg);
+    void Do(const FusionMsg &fusionMsg);
 
 private:
     ros::Publisher m_publisher;

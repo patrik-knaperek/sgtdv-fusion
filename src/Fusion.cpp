@@ -15,7 +15,7 @@ void Fusion::SetPublisher(ros::Publisher publisher)
     m_publisher = publisher;
 }
 
-void Fusion::Do(const sgtdv_msgs::FusionMsgPtr &msg)
+void Fusion::Do(const FusionMsg &fusionMsg)
 {   
     sgtdv_msgs::ConeArrPtr cones( new sgtdv_msgs::ConeArr );
     sgtdv_msgs::Cone cone;
@@ -23,14 +23,14 @@ void Fusion::Do(const sgtdv_msgs::FusionMsgPtr &msg)
     cones->cones.reserve(20);
     //TODO: Static transformations
     
-    for(size_t i = 0; i < msg->lidarCones.points.size(); i++)
+    for(size_t i = 0; i < fusionMsg.lidarData->points.size(); i++)
     {
-        for(size_t j = 0; j < msg->cameraCones.cones.size(); j++)
+        for(size_t j = 0; j < fusionMsg.cameraData->cones.size(); j++)
         {
-            if (AreInSamePlace(msg->lidarCones.points[i], msg->cameraCones.cones[j].coords))
+            if (AreInSamePlace(fusionMsg.lidarData->points[i], fusionMsg.cameraData->cones[j].coords))
             {
-                cone.coords = msg->lidarCones.points[i];
-                cone.color = msg->cameraCones.cones[j].color;
+                cone.coords = fusionMsg.lidarData->points[i];
+                cone.color = fusionMsg.cameraData->cones[j].color;
 
                 cones->cones.push_back(cone);
             }
