@@ -1,3 +1,8 @@
+/*****************************************************/
+//Organization: Stuba Green Team
+//Authors: Juraj Krasňanský
+/*****************************************************/
+
 #pragma once
 
 #include <sgtdv_msgs/ConeArr.h>
