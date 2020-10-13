@@ -54,7 +54,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
 #ifdef DEBUG_STATE
     state.workingState = 0;
     state.numOfCones = static_cast<uint32_t>(cones->cones.size());
-    m_publisher.publish(state);
+    m_visDebugPublisher.publish(state);
 #endif
 }
 
