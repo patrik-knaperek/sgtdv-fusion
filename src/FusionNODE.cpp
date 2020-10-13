@@ -22,7 +22,7 @@ int main(int argc, char** argv)
     synchObj.SetPublisher(publisher);
 
 #ifdef DEBUG_STATE
-    ros::Publisher fusionDebugStatePublisher = handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 1);
+    ros::Publisher fusionDebugStatePublisher = handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 10);
     synchObj.SetVisDebugPublisher(fusionDebugStatePublisher);
 #endif
 
