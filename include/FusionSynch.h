@@ -10,6 +10,7 @@
 #include <sgtdv_msgs/Point2DArr.h>
 #include "../include/Fusion.h"
 #include "../include/Messages.h"
+#include "../../SGT_Macros.h"
 
 
 class FusionSynch
@@ -21,6 +22,10 @@ public:
     void SetPublisher(ros::Publisher publisher);
     void DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg);
     void DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg);
+    
+#ifdef DEBUG_STATE
+    void SetVisDebugPublisher(ros::Publisher publisher) { m_fusion.SetVisDebugPublisher(publisher); }
+#endif
 
 private:
     Fusion m_fusion;

@@ -23,6 +23,12 @@ void Fusion::SetPublisher(ros::Publisher publisher)
 
 void Fusion::Do(const FusionMsg &fusionMsg)
 {   
+#ifdef DEBUG_STATE
+    sgtdv_msgs::DebugState state;
+    state.workingState = 1;
+    m_visDebugPublisher.publish(state);
+#endif
+
     sgtdv_msgs::ConeArrPtr cones( new sgtdv_msgs::ConeArr );
     sgtdv_msgs::Cone cone;
 
@@ -44,6 +50,12 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     }
 
     m_publisher.publish(cones);
+
+#ifdef DEBUG_STATE
+    state.workingState = 0;
+    state.numOfCones = static_cast<uint32_t>(cones->cones.size());
+    m_publisher.publish(state);
+#endif
 }
 
 bool Fusion::AreInSamePlace(const sgtdv_msgs::Point2D &p1, const sgtdv_msgs::Point2D &p2) const
