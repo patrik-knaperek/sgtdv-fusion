@@ -24,6 +24,8 @@ void FusionSynch::SetPublisher(ros::Publisher publisher)
 
 void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 {
+    if (m_cameraReady && !m_lidarReady) return;
+
     m_cameraReady = true;
 
     if (m_cameraReady && m_lidarReady)
@@ -41,6 +43,8 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 
 void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
 {
+    if (m_lidarReady && !m_cameraReady) return;
+
     m_lidarReady = true;
 
     if (m_cameraReady && m_lidarReady)
@@ -51,7 +55,7 @@ void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
         m_fusion.Do(m_fusionMsg);
     }
     else
-    {
+    {                                   //TODO
         m_fusionMsg.lidarData = msg;
     }    
 }
