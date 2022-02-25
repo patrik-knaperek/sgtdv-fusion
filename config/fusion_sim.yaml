@@ -1,0 +1,4 @@
+distance_tolerance: 0.3
+
+base_frame: gotthard/base_link
+#base_frame: map

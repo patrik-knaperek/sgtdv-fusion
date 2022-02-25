@@ -4,24 +4,27 @@
 /*****************************************************/
 
 
-#include <ros/ros.h>
 #include "../include/FusionSynch.h"
-#include <sgtdv_msgs/ConeArr.h>
-#include "../../SGT_Macros.h"
-#include <sgtdv_msgs/DebugState.h>
 
 int main(int argc, char** argv)
 {
-    FusionSynch synchObj;
-
     ros::init(argc, argv, "fusion");
     ros::NodeHandle handle;
+    FusionSynch synchObj;
 
     ros::Publisher publisher = handle.advertise<sgtdv_msgs::ConeArr>("fusion_cones", 1);
-
     synchObj.SetPublisher(publisher);
 
-#ifdef DEBUG_STATE
+    std::string baseFrame;
+    if(!handle.getParam("/base_frame", baseFrame))
+        ROS_ERROR("Failed to get parameter from server\n");
+    synchObj.SetBaseFrameId(baseFrame);
+
+    float tol;
+    handle.param("/distance_tolerance", tol, 0.3f);
+    synchObj.SetDistanceTol(tol);
+
+#ifdef SGT_DEBUG_STATE
     ros::Publisher fusionDebugStatePublisher = handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 10);
     synchObj.SetVisDebugPublisher(fusionDebugStatePublisher);
 #endif
