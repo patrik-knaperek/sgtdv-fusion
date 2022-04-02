@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <rosparam command="load" file="$(find fusion)/config/fusion_sim.yaml"/>
+
+    <node pkg="fusion_sim_interface" type="fusion_sim_interface" name="fusion_sim_interface" output="screen"/>
+    <node pkg="fusion" type="fusion" name="fusion" output="screen"/>
+</launch>
