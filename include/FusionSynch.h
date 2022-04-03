@@ -34,7 +34,7 @@ class FusionSynch
         void SetPublisher(ros::Publisher publisher) { m_fusion.SetPublisher(publisher); };
         void SetDistanceTol(float tol) { m_fusion.SetDistanceTol(tol); };
         
-    #ifdef DEBUG_STATE
+    #ifdef SGT_DEBUG_STATE
         void SetVisDebugPublisher(ros::Publisher publisher) { m_fusion.SetVisDebugPublisher(publisher); }
     #endif
 

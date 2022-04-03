@@ -17,7 +17,7 @@ Fusion::~Fusion()
 
 void Fusion::Do(const FusionMsg &fusionMsg)
 {   
-#ifdef DEBUG_STATE
+#ifdef SGT_DEBUG_STATE
     sgtdv_msgs::DebugState state;
     state.workingState = 1;
     m_visDebugPublisher.publish(state);
@@ -60,7 +60,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     
     m_publisher.publish(fusedCones);
 
-#ifdef DEBUG_STATE
+#ifdef SGT_DEBUG_STATE
     state.workingState = 0;
     state.numOfCones = static_cast<uint32_t>(fusedCones->cones.size());
     m_visDebugPublisher.publish(state);

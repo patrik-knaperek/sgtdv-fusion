@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     handle.param("/distance_tolerance", tol, 0.3f);
     synchObj.SetDistanceTol(tol);
 
-#ifdef DEBUG_STATE
+#ifdef SGT_DEBUG_STATE
     ros::Publisher fusionDebugStatePublisher = handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 10);
     synchObj.SetVisDebugPublisher(fusionDebugStatePublisher);
 #endif

@@ -26,7 +26,7 @@ class Fusion
         void SetPublisher(ros::Publisher publisher) { m_publisher = publisher; };
         void SetDistanceTol(float tol) {m_tol = tol;};
 
-    #ifdef DEBUG_STATE
+    #ifdef SGT_DEBUG_STATE
         void SetVisDebugPublisher(ros::Publisher publisher) { m_visDebugPublisher = publisher; }
     #endif
 
@@ -36,7 +36,7 @@ class Fusion
         ros::Publisher m_publisher; 
         float m_tol;
 
-    #ifdef DEBUG_STATE
+    #ifdef SGT_DEBUG_STATE
         ros::Publisher m_visDebugPublisher;
     #endif
 
