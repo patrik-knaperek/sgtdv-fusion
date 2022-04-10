@@ -24,12 +24,7 @@ class FusionSynch
         ~FusionSynch();
 
         // Setters
-        void SetFrames(std::string fixedFrame, std::string cameraFrame, std::string lidarFrame)
-        {
-            m_fixedFrameId = fixedFrame;
-            m_cameraFrameId = cameraFrame;
-            m_lidarFrameId = lidarFrame;
-        };
+        void SetBaseFrameId(std::string baseFrame) { m_baseFrameId = baseFrame; };
 
         void SetPublisher(ros::Publisher publisher) { m_fusion.SetPublisher(publisher); };
         void SetDistanceTol(float tol) { m_fusion.SetDistanceTol(tol); };
@@ -48,9 +43,7 @@ class FusionSynch
         bool m_lidarReady;
         FusionMsg m_fusionMsg;
 
-        std::string m_fixedFrameId;
-        std::string m_cameraFrameId;
-        std::string m_lidarFrameId;
+        std::string m_baseFrameId;
 
         tf::TransformListener m_listener;
 };

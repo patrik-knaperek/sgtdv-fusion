@@ -1,5 +1,4 @@
 distance_tolerance: 0.3
 
-fixed_frame: map
-camera_frame: gotthard/base_link
-lidar_frame: gotthard/base_link
+base_frame: gotthard/base_link
+#base_frame: map
