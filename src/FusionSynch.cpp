@@ -61,12 +61,8 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
         {
             m_cameraReady = false;
             m_lidarReady = false;
-<<<<<<< HEAD
-            m_fusionMsg.cameraData = msgFixedFrame;
-		#ifdef FUSION_CONSOLE_SHOW
-=======
             m_fusionMsg.cameraData = msgBaseFrame;
->>>>>>> 4f3a9d9... Added header to 'Point2D.msg'
+		#ifdef FUSION_CONSOLE_SHOW
             std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
             std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
 		#endif
