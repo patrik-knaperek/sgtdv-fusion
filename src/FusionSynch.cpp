@@ -59,8 +59,10 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msgSensorFrame)
             m_cameraReady = false;
             m_lidarReady = false;
             m_fusionMsg.cameraData = msgFixedFrame;
+		#ifdef FUSION_CONSOLE_SHOW
             std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
             std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
+		#endif
             m_fusion.Do(m_fusionMsg);
         }
         else
@@ -110,8 +112,10 @@ void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msgSensorFrame
         m_cameraReady = false;
         m_lidarReady = false;
         m_fusionMsg.lidarData = msgFixedFrame;
+	#ifdef FUSION_CONSOLE_SHOW
         std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
         std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
+	#endif
         m_fusion.Do(m_fusionMsg);
     }
     else

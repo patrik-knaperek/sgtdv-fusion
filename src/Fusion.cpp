@@ -41,7 +41,9 @@ void Fusion::Do(const FusionMsg &fusionMsg)
             {
                 cone.coords = fusionMsg.lidarData->points[j];
                 fused = true;
-                std::cout << "taking coords from lidar:\n" << cone.coords << std::endl; 
+			#ifdef FUSION_CONSOLE_SHOW
+                std::cout << "taking coords from lidar:\n" << cone.coords << std::endl;
+			#endif
                 break;
             }
         }
@@ -49,11 +51,15 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         if (!fused)
         {
             cone.coords = fusionMsg.cameraData->cones[i].coords;
+		#ifdef FUSION_CONSOLE_SHOW
             std::cout << "taking coords from camera:\n" << cone.coords << std::endl; 
+		#endif
         }
 
         cone.color = fusionMsg.cameraData->cones[i].color;
+	#ifdef FUSION_CONSOLE_SHOW
         std::cout << "CONE COLOR: " << cone.color << std::endl;
+	#endif
 
         fusedCones->cones.push_back(cone);
     }
