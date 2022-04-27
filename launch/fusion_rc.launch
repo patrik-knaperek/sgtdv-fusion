@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+    <rosparam command="load" file="$(find fusion)/config/fusion_rc.yaml"/>
+
+    <include file="$(find camera_cone_detection)/launch/camera_cone_detection.launch"/>
+	<include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>
+	<node pkg="fusion" type="fusion" name="fusion" output="screen"/>
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_left_to_camera_center" 
+    args="0 0.06 0 0 0 0 camera_center camera_left" />
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
+    args="0 0 0 0 0 0 base_link camera_center" />
+    
+    <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_to_base_link" 
+    args="0.319 0 0 0 0 0 base_link lidar" />
+
+    <node pkg="visual_odometry" type="visual_odometry" name="base_link_to_odom" output="screen"/>
+</launch>
