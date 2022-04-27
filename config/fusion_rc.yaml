@@ -1,0 +1,5 @@
+fixed_frame: base_link
+camera_frame: camera_left
+lidar_frame: lidar
+
+distance_tolerance: 0.2
