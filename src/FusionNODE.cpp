@@ -1,6 +1,6 @@
 /*****************************************************/
 //Organization: Stuba Green Team
-//Authors: Juraj Krasňanský
+//Authors: Juraj Krasňanský, Patrik Knaperek
 /*****************************************************/
 
 
@@ -24,6 +24,84 @@ int main(int argc, char** argv)
     handle.param("/distance_tolerance", tol, 0.3f);
     synchObj.SetDistanceTol(tol);
 
+    // get sensor meassurement models from parameter server
+    Eigen::Matrix2d cameraMM = Eigen::Matrix2d::Zero();
+    XmlRpc::XmlRpcValue cameraMMParam;
+
+    try
+    {
+        if (!handle.getParam("/camera_model", cameraMMParam))
+            ROS_ERROR("Failed to get parameter from server \n");
+
+        ROS_ASSERT(cameraMMParam.getType() == XmlRpc::XmlRpcValue::TypeArray);
+
+        for (int j = 0; j < 4; j++)
+        {
+            try
+            {
+                std::ostringstream ostr;
+                ostr << cameraMMParam[j];
+                std::istringstream istr(ostr.str());
+                istr >> cameraMM(j);
+            }
+            catch(XmlRpc::XmlRpcException &e)
+            {
+                throw e;
+            }
+            catch(...)
+            {
+                throw;
+            }
+                
+        }
+    }
+    catch(XmlRpc::XmlRpcException &e)
+    {
+        ROS_ERROR_STREAM("ERROR reading from server: " <<
+                        e.getMessage() <<
+                        " for cones_coords (type: " <<
+                        cameraMMParam.getType() << ")");
+    }
+
+    Eigen::Matrix2d lidarMM = Eigen::Matrix2d::Zero();
+    XmlRpc::XmlRpcValue lidarMMParam;
+
+    try
+    {
+        if (!handle.getParam("/lidar_model", lidarMMParam))
+            ROS_ERROR("Failed to get parameter from server \n");
+
+        ROS_ASSERT(lidarMMParam.getType() == XmlRpc::XmlRpcValue::TypeArray);
+
+        for (int j = 0; j < 4; j++)
+        {
+            try
+            {
+                std::ostringstream ostr;
+                ostr << lidarMMParam[j];
+                std::istringstream istr(ostr.str());
+                istr >> lidarMM(j);
+            }
+            catch(XmlRpc::XmlRpcException &e)
+            {
+                throw e;
+            }
+            catch(...)
+            {
+                throw;
+            }
+                
+        }
+    }
+    catch(XmlRpc::XmlRpcException &e)
+    {
+        ROS_ERROR_STREAM("ERROR reading from server: " <<
+                        e.getMessage() <<
+                        " for cones_coords (type: " <<
+                        lidarMMParam.getType() << ")");
+    }
+    synchObj.SetMeassurementModels(cameraMM, lidarMM);
+    //std::cout << "here8" << std::endl;
 #ifdef SGT_DEBUG_STATE
     ros::Publisher fusionDebugStatePublisher = handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 10);
     synchObj.SetVisDebugPublisher(fusionDebugStatePublisher);

@@ -1,6 +1,6 @@
 /*****************************************************/
 //Organization: Stuba Green Team
-//Authors: Juraj Krasňanský
+//Authors: Juraj Krasňanský, Patrik Knaperek
 /*****************************************************/
 
 
@@ -32,7 +32,7 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
     sgtdv_msgs::Cone cone;
     msgBaseFrame->cones.reserve(conesCount);
 
-    for (int i = 0; i < conesCount; i++)
+    for (size_t i = 0; i < conesCount; i++)
     {
         if (std::isnan(msg->cones[i].coords.x) || std::isnan(msg->cones[i].coords.y))
             continue;
@@ -95,7 +95,7 @@ void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
     sgtdv_msgs::Point2D point;
     msgBaseFrame->points.reserve(pointsCount);
 
-     for (int i = 0; i < pointsCount; i++)
+     for (size_t i = 0; i < pointsCount; i++)
     {
         coordsMsgFrame.header = msg->points[i].header;
         coordsMsgFrame.point.x = msg->points[i].x;

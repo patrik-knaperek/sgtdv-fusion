@@ -5,12 +5,16 @@
 
 #pragma once
 
+// C++
+#include <iostream>
+#include <cmath>
+#include <XmlRpcException.h>
+
+// ROS
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 
-#include <iostream>
-#include <cmath>
-
+// SGT
 #include <sgtdv_msgs/ConeArr.h>
 #include <sgtdv_msgs/Point2DArr.h>
 #include "../include/Fusion.h"
@@ -28,6 +32,10 @@ class FusionSynch
 
         void SetPublisher(ros::Publisher publisher) { m_fusion.SetPublisher(publisher); };
         void SetDistanceTol(float tol) { m_fusion.SetDistanceTol(tol); };
+        void SetMeassurementModels(Matrix2d cameraMeasModel, Matrix2d lidarMeasModel)
+        {
+            m_fusion.SetMeassurementModels(cameraMeasModel, lidarMeasModel);
+        };
         
     #ifdef SGT_DEBUG_STATE
         void SetVisDebugPublisher(ros::Publisher publisher) { m_fusion.SetVisDebugPublisher(publisher); }
