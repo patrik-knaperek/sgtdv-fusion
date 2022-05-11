@@ -15,6 +15,9 @@
 #include <tf/transform_listener.h>
 
 // SGT
+#include <iostream>
+#include <cmath>
+
 #include <sgtdv_msgs/ConeArr.h>
 #include <sgtdv_msgs/Point2DArr.h>
 #include "../include/Fusion.h"
