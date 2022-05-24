@@ -5,24 +5,8 @@
 
 #pragma once
 
-// C++
-#include <iostream>
-#include <cmath>
-#include <XmlRpcException.h>
-
-// ROS
-#include <ros/ros.h>
 #include <tf/transform_listener.h>
-
-// SGT
-#include <iostream>
-#include <cmath>
-
-#include <sgtdv_msgs/ConeArr.h>
-#include <sgtdv_msgs/Point2DArr.h>
 #include "../include/Fusion.h"
-#include "../include/Messages.h"
-#include "../../SGT_Macros.h"
 
 class FusionSynch
 {
@@ -31,17 +15,36 @@ class FusionSynch
         ~FusionSynch();
 
         // Setters
-        void SetBaseFrameId(std::string baseFrame) { m_baseFrameId = baseFrame; };
+        void SetBaseFrameId(std::string baseFrame) 
+        { 
+            m_baseFrameId = baseFrame;
+            m_fusionObj.SetBaseFrameId(baseFrame);
+        };
+        void SetLidarFrameId(std::string lidarFrame) { m_lidarFrameId = lidarFrame; };
+        void SetLidarFrameTF();
 
-        void SetPublisher(ros::Publisher publisher) { m_fusion.SetPublisher(publisher); };
-        void SetDistanceTol(float tol) { m_fusion.SetDistanceTol(tol); };
-        void SetMeassurementModels(Matrix2d cameraMeasModel, Matrix2d lidarMeasModel)
+        void SetPublisher(ros::Publisher publisher
+        #ifdef SIMPLE_FUSION
+            , ros::Publisher simpleFusionPub
+        #endif
+        ) { m_fusionObj.SetPublisher(publisher
+        #ifdef SIMPLE_FUSION
+        , simpleFusionPub
+        #endif
+        ); };
+        void SetDistanceTol(float tol) { m_fusionObj.SetDistanceTol(tol); };
+        void SetMeassurementModels(Eigen::Matrix<double, N_OF_MODELS, 4> cameraModel, Eigen::Matrix<double, N_OF_MODELS, 4> lidarModel)
         {
-            m_fusion.SetMeassurementModels(cameraMeasModel, lidarMeasModel);
+            m_fusionObj.SetMeassurementModels(cameraModel, lidarModel);
         };
         
+    #ifdef SGT_EXPORT_DATA_CSV
+        void OpenDataFile(std::string dataFilename) { m_fusionObj.OpenDataFile(dataFilename); };
+        void SetMapFrameId(std::string mapFrame) { m_fusionObj.SetMapFrameId(mapFrame); };
+        void MapCallback(const visualization_msgs::MarkerArray::ConstPtr &msg) { m_fusionObj.WriteMapToFile(msg); };
+    #endif
     #ifdef SGT_DEBUG_STATE
-        void SetVisDebugPublisher(ros::Publisher publisher) { m_fusion.SetVisDebugPublisher(publisher); }
+        void SetVisDebugPublisher(ros::Publisher publisher) { m_fusionObj.SetVisDebugPublisher(publisher); }
     #endif
 
         void DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg);
@@ -49,12 +52,13 @@ class FusionSynch
         geometry_msgs::PointStamped TransformCoords(geometry_msgs::PointStamped coordsChildFrame);
 
     private:
-        Fusion m_fusion;
+        Fusion m_fusionObj;
         bool m_cameraReady; 
         bool m_lidarReady;
         FusionMsg m_fusionMsg;
 
         std::string m_baseFrameId;
+        std::string m_lidarFrameId;
 
         tf::TransformListener m_listener;
 };

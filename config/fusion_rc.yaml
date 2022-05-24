@@ -1,3 +1,8 @@
 base_frame: base_link
+lidar_frame: lidar
 
-distance_tolerance: 0.2
+distance_tolerance: 0.5
+
+# data export
+data_filename: fusion_data_1
+map_frame: map

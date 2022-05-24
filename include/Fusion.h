@@ -5,69 +5,143 @@
 
 #pragma once
 
-#include <ros/ros.h>
+// C++
+#include <iostream>
+#include <fstream>
+#include <string>
 #include <cmath>
-#include <Eigen/Core>
+#include <array>
+#include <Eigen/Eigen>
+
+// ROS
+#include <ros/ros.h>
+#include <ros/package.h>
 #include <geometry_msgs/PointStamped.h>
+#include <tf/transform_listener.h>
+#include <visualization_msgs/MarkerArray.h>
+
+// SGT
 #include <sgtdv_msgs/ConeArr.h>
 #include <sgtdv_msgs/Point2DArr.h>
+#include <sgtdv_msgs/DebugState.h>
 #include "../include/Messages.h"
 #include "../../SGT_Macros.h"
-#include <sgtdv_msgs/DebugState.h>
-
 #include "../include/FusionKF.h"
 
-using namespace Eigen;
+#define MAX_TRACKED_CONES_SCORE 4
+#define MAX_TRACKED_CONES_N 20
+#define N_OF_MODELS 2
+#define CAMERA_X_MIN 1.7
+#define CAMERA_X_MAX 8.0
+#define LIDAR_X_MIN 0.75
+#define LIDAR_X_MAX 8
+#define DATA_SIZE_MAX 150
+
+#define OFFSET_CORRECTION
 
 
 class Fusion
 {
     public:
-        Fusion();
+        Fusion(); 
         ~Fusion();
 
-
         // Setters
-        void SetPublisher(ros::Publisher publisher) { m_publisher = publisher; };
-        void SetDistanceTol(float tol) { m_distTH = tol; };
-        void SetMeassurementModels(Matrix2d cameraMeasModel, Matrix2d lidarMeasModel)
-        {
-            m_cameraMeasModel = cameraMeasModel;
-            m_lidarMeasModel = lidarMeasModel;
+        void SetPublisher(ros::Publisher publisher
+        #ifdef SIMPLE_FUSION
+            , ros::Publisher simpleFusionPub
+        #endif
+        ) { m_publisher = publisher; 
+        #ifdef SIMPLE_FUSION
+            m_simpleFusionPub = simpleFusionPub; 
+        #endif
         };
+        void SetDistanceTol(float tol) { m_distTH = tol; };
+        void SetMeassurementModels(Eigen::Matrix<double, N_OF_MODELS, 4> cameraModel, Eigen::Matrix<double, N_OF_MODELS, 4> lidarModel)
+        {
+            m_cameraModel = cameraModel;
+            m_lidarModel = lidarModel;
+        };
+        void SetBaseFrameId(std::string baseFrame) { m_baseFrameId = baseFrame; };
+        void SetLidarFrameTF(float xTF) { m_lidarFrameTF = xTF; };
 
+    #ifdef SGT_EXPORT_DATA_CSV
+        void OpenDataFile(std::string filename);
+        void SetMapFrameId(std::string mapFrame) { m_mapFrameId = mapFrame; };
+        void WriteMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg);
+    #endif
     #ifdef SGT_DEBUG_STATE
         void SetVisDebugPublisher(ros::Publisher publisher) { m_visDebugPublisher = publisher; }
     #endif
 
         void Do(const FusionMsg &fusionMsg);
-
+   
     private:
+        float EuclidDist(const Eigen::Ref<const Eigen::Vector2d> &p1, const Eigen::Ref<const Eigen::Vector2d> &p2);
+        float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
+                        const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov);
+        int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&meassurementSetCov,
+                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &meassurementMean, const Eigen::Ref<const Eigen::Matrix2d> &meassurementCov);
+        int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSetMean, int setSize, 
+        const Eigen::Ref<const Eigen::Vector2d> &meassurementMean);
+
         FusionKF m_KF;
         
         ros::Publisher m_publisher;
-        ros::Time m_tAct;
-        ros::Time m_tOld;
+
+    #ifdef SIMPLE_FUSION
+        ros::Publisher m_simpleFusionPub;
+    #endif
 
         float m_distTH;
 
-        Matrix2Xd m_fusionCones;
-        MatrixX2d m_fusionConesCov;
-        ArrayXi m_modified;
-        uint8_t m_colors[100];
-        ros::Time m_stamps[100];
+        Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionCones;
+
+    #ifdef SIMPLE_FUSION
+        Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionSimpleCones;
+    #endif
+
+        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, 2> m_fusionConesCov;
+        Eigen::Array<int, 1, MAX_TRACKED_CONES_N> m_modified;
+        uint8_t m_colors[MAX_TRACKED_CONES_N];
+        ros::Time m_stamps[MAX_TRACKED_CONES_N];
         int m_numOfCones;
 
-        Matrix2d m_cameraMeasModel;
-        Matrix2d m_lidarMeasModel;
+        Eigen::Matrix<double, N_OF_MODELS, 4> m_cameraModel;
+        Eigen::Matrix<double, N_OF_MODELS, 4> m_lidarModel;
+
+        std::string m_baseFrameId;
+
+        float m_lidarFrameTF;
+
+    #ifdef SGT_EXPORT_DATA_CSV
+        void WriteToDataFile(int Idx);
+        Eigen::Vector2d TransformCoords(const Eigen::Ref<const Eigen::Vector2d> &obsBaseFrame, ros::Time stamp);
+        Eigen::Vector2d TransformCoords(const sgtdv_msgs::Point2D &obs);
+
+        tf::TransformListener m_listener;
+
+        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_cameraData;
+        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_lidarData;
+        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_fusionData;
+        Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_cameraDataCount;
+        Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_lidarDataCount;
+        Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_fusionDataCount;
+        std::ofstream m_cameraDataFile;
+        std::ofstream m_lidarDataFile;
+        std::ofstream m_fusionDataFile;
+        std::ofstream m_mapDataFile;
+
+        std::string m_mapFrameId;
+
+        #ifdef SIMPLE_FUSION
+            Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_simpleFusionData;
+            Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_simpleFusionDataCount;
+            std::ofstream m_simpleFusionDataFile;
+        #endif // SIMPLE_FUSION
+    #endif //SGT_EXPORT_DATA_CSV
 
     #ifdef SGT_DEBUG_STATE
         ros::Publisher m_visDebugPublisher;
-    #endif
-
-        //bool AreInSamePlace(const sgtdv_msgs::Point2D &p1, const sgtdv_msgs::Point2D &p2) const;
-        float MahalanDist(const Ref<const Vector2d> &setMean, const Ref<const Matrix2d> &setCov,
-                        const Ref<const Vector2d> &obsMean, const Ref<const Matrix2d> &obsCov);
-        int MinDistIdx(const Ref<const Matrix2Xd> &meassurementSetMean,const Ref<const MatrixX2d>&meassurementSetCov,
-                        int size, const Ref<const Vector2d> &meassurementMean, const Ref<const Matrix2d> &meassurementCov);
+    #endif        
 };

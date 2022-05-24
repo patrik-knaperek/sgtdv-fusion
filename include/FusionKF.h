@@ -4,9 +4,7 @@
 /*****************************************************/
 
 #include <ros/ros.h>
-#include <Eigen/Dense>
-
-using namespace Eigen;
+#include <Eigen/Eigen>
 
 class FusionKF
 {
@@ -14,13 +12,13 @@ class FusionKF
         FusionKF();
         ~FusionKF();
 
-        void Predict(Ref<Matrix2Xd> m_fusionCones, Ref<MatrixX2d> m_fusionConesCov,uint8_t size, ros::Duration deltaT);
-        void Update(Ref<Matrix2Xd> m_fusionCones, Ref<MatrixX2d> m_fusionConesCov, int idx,
-                    const Ref<const Vector2d> &meassurement, const Ref<const Matrix2d> measModel);
+        void Predict(Eigen::Ref<Eigen::Matrix2Xd> m_fusionCones, Eigen::Ref<Eigen::MatrixX2d> m_fusionConesCov,uint8_t size);
+        void Update(Eigen::Ref<Eigen::Matrix2Xd> m_fusionCones, Eigen::Ref<Eigen::MatrixX2d> m_fusionConesCov, int idx,
+                    const Eigen::Ref<const Eigen::Vector2d> &meassurement, const Eigen::Ref<const Eigen::Matrix2d> measModel);
 
     private:
-        Matrix2d m_F;
-        Matrix2d m_H;
-        Matrix2d m_Q;
+        Eigen::Matrix2d m_F;
+        Eigen::Matrix2d m_H;
+        Eigen::Matrix2d m_Q;
 };
 

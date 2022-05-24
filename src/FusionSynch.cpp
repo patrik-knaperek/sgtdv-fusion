@@ -17,6 +17,17 @@ FusionSynch::~FusionSynch()
     
 }
 
+void FusionSynch::SetLidarFrameTF()
+{
+    geometry_msgs::PointStamped lidarZero;
+    lidarZero.point.x = lidarZero.point.y = lidarZero.point.z = 0.0;
+    lidarZero.header.frame_id = m_lidarFrameId;
+    lidarZero.header.stamp = ros::Time::now();
+    geometry_msgs::PointStamped lidarFrameTF = TransformCoords(lidarZero);
+    m_fusionObj.SetLidarFrameTF(lidarFrameTF.point.x);
+    m_lidarFrameId = std::string("done");
+}
+
 void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 {
     if (m_cameraReady && !m_lidarReady) return;
@@ -66,7 +77,7 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
             std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
             std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
 		#endif
-            m_fusion.Do(m_fusionMsg);
+            m_fusionObj.Do(m_fusionMsg);
         }
         else
         {
@@ -82,6 +93,9 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 
 void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
 {
+    // set TF from lidar frame to base frame once
+    if (m_lidarFrameId.compare(std::string("done")) != 0)
+        this->SetLidarFrameTF();
     if (m_lidarReady && !m_cameraReady) return;
 
     int pointsCount = msg->points.size();
@@ -122,7 +136,7 @@ void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
         std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
         std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
 	#endif
-        m_fusion.Do(m_fusionMsg);
+        m_fusionObj.Do(m_fusionMsg);
     }
     else
     {

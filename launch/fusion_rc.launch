@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <launch>
     <rosparam command="load" file="$(find fusion)/config/fusion_rc.yaml"/>
+    <rosparam command="load" file="$(find calibration)/params/sensor_model_camera.yaml"/>
+    <rosparam command="load" file="$(find calibration)/params/sensor_model_lidar.yaml"/>
 
     <include file="$(find camera_cone_detection)/launch/camera_cone_detection.launch"/>
 	<include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>
