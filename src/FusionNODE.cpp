@@ -31,6 +31,12 @@ int main(int argc, char** argv)
         ROS_ERROR("Failed to get parameter \"/base_frame\" from server\n");
     synchObj.SetBaseFrameId(baseFrame);
     
+
+    std::string cameraFrame;
+    if(!handle.getParam("/camera_frame", cameraFrame))
+        ROS_ERROR("Failed to get parameter \"/camera_frame\" from server\n");
+    synchObj.SetCameraFrameId(cameraFrame);
+
     std::string lidarFrame;
     if(!handle.getParam("/lidar_frame", lidarFrame))
         ROS_ERROR("Failed to get parameter \"/lidar_frame\" from server\n");
@@ -55,7 +61,7 @@ int main(int argc, char** argv)
 
 #endif //SGT_EXPORT_DATA_CSV
 
-    // get sensor meassurement models from parameter server
+    // get sensor measurement models from parameter server
     Eigen::Matrix<double, N_OF_MODELS, 4> cameraModel = Eigen::Matrix<double, N_OF_MODELS, 4>::Zero();
     cameraModel.block<N_OF_MODELS, 2>(0,0) = readArray(handle, std::string("/camera/offset"), N_OF_MODELS, 2);
     cameraModel.block<N_OF_MODELS, 2>(0,2) = readArray(handle, std::string("/camera/covariance"), N_OF_MODELS, 2);

@@ -10,7 +10,8 @@ Fusion::Fusion()
 {
     m_fusionCones = Eigen::Matrix2Xd::Zero(2,MAX_TRACKED_CONES_N);
     m_fusionConesCov = Eigen::MatrixX2d::Zero(2*MAX_TRACKED_CONES_N,2);
-    m_modified.setZero();
+    m_vitalityScore.setZero();
+    m_validationScore.setZero();
     m_numOfCones = 0;
 
 #ifdef SGT_EXPORT_DATA_CSV
@@ -52,6 +53,7 @@ Fusion::~Fusion()
 #endif // SGT_EXPORT_DATA_CSV
 }
 
+
 void Fusion::Do(const FusionMsg &fusionMsg)
 {   
 #ifdef SGT_DEBUG_STATE
@@ -59,10 +61,9 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     state.workingState = 1;
     m_visDebugPublisher.publish(state);
 #endif
-    //* Fusion EKF *//
 
     if (m_numOfCones > 0)
-        m_modified -= 1;
+        m_vitalityScore -= 1;
 
     // extract data from input message
     int numOfCamObs = fusionMsg.cameraData->cones.size();
@@ -83,11 +84,11 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         lidarObs(1, i) = fusionMsg.lidarData->points[i].y;
     }
 
+    // KF prediction step for all tracked cones
     if (m_numOfCones > 0)
     {
         m_KF.Predict(m_fusionCones, m_fusionConesCov, m_numOfCones);
     }
-
 
     // search in CAMERA detections
     int fIdx;
@@ -103,17 +104,17 @@ void Fusion::Do(const FusionMsg &fusionMsg)
 #endif
     for (int cIdx = 0; cIdx < numOfCamObs; cIdx++)
     {
-        // filter by x axis
-        if (cameraObs(0, cIdx) < CAMERA_X_MIN || cameraObs(0, cIdx) > CAMERA_X_MAX)
+        // filter measurement by x axis
+        if (cameraObs(0, cIdx) < m_cameraFrameTF + CAMERA_X_MIN || cameraObs(0, cIdx) > m_cameraFrameTF + CAMERA_X_MAX)
             continue;
         
-        // asign meassurement model to meassurement
+        // asign measurement model to measurement
         for(int model = 0; model < N_OF_MODELS; model++)
         {
-            if (cameraObs(0, cIdx) < (CAMERA_X_MAX - CAMERA_X_MIN) / N_OF_MODELS * (model+1) + CAMERA_X_MIN)
+            if (cameraObs(0, cIdx) < (CAMERA_X_MAX - CAMERA_X_MIN) / N_OF_MODELS * (model+1) + m_cameraFrameTF + CAMERA_X_MIN)
             {
                 cameraObsAct = cameraObs.col(cIdx);
-            #ifdef OFFSET_CORRECTION
+            #ifdef ACCURACY_CORRECTION
                 cameraObsAct += m_cameraModel.block<1,2>(model,0).transpose();
             #endif
                 cameraCovAct(0,0) = m_cameraModel(model,2);
@@ -127,16 +128,20 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         if (fIdx >= 0)
         {   // run ekf-update with new detection
             m_KF.Update(m_fusionCones, m_fusionConesCov, fIdx, cameraObsAct, cameraCovAct);
-            m_modified(fIdx) += m_modified(fIdx) >= MAX_TRACKED_CONES_SCORE ? 0 : 1;
+            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= MAX_TRACKED_CONES_SCORE ? 0 : 1;
+            m_validationScore(fIdx) += m_validationScore(fIdx) > VALIDATION_SCORE_TH ? 0 : 1;
         }
         else
-        {   // add to tracked detections
+        {   
+            // add to tracked detections
             fIdx = m_numOfCones++;
             m_fusionCones.col(fIdx) = cameraObsAct;
             m_fusionConesCov.block<2,2>(2*fIdx, 0) = cameraCovAct;
-            m_modified(fIdx) = 1;
+            m_vitalityScore(fIdx) = 2;
+            m_validationScore(fIdx) = 1;
         }
 
+        // update color and stamp information
         m_colors[fIdx] = fusionMsg.cameraData->cones[cIdx].color;
         m_stamps[fIdx] = fusionMsg.cameraData->cones[cIdx].coords.header.stamp;
 
@@ -154,26 +159,31 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         {
             simpleFusionCone.coords = fusionMsg.cameraData->cones[cIdx].coords;
         }
+        //std::cout << "cIdx" << cIdx << std::endl;
+        //std::cout << simpleFusionCone.coords << std::endl;
         simpleFusionCone.color = fusionMsg.cameraData->cones[cIdx].color;
         simpleFusionCones->cones.push_back(simpleFusionCone);
-    #endif // SIMPLE_FUSION
+    #endif // SIMPLE_FUSION    
+
 
     #ifdef SGT_EXPORT_DATA_CSV
 
         Eigen::Vector2d cameraObsMap = TransformCoords(fusionMsg.cameraData->cones[cIdx].coords);
         if (cameraObsMap != Eigen::Vector2d::Zero())
         {
+            std::cout << m_cameraDataCount(fIdx) << std::endl;
             m_cameraData.block<2, 1>(2*fIdx, m_cameraDataCount(fIdx)) = cameraObsMap; 
             m_cameraDataCount(fIdx)++;
         }
-        #ifdef SIMPLE_FUSION
+
+    #ifdef SIMPLE_FUSION
         Eigen::Vector2d simpleFusionMap = TransformCoords(simpleFusionCone.coords);
         if (simpleFusionMap != Eigen::Vector2d::Zero())
         {
             m_simpleFusionData.block<2, 1>(2*fIdx, m_simpleFusionDataCount(fIdx)) = simpleFusionMap;
             m_simpleFusionDataCount(fIdx)++;
         }
-        #endif // SIMPLE_FUSION
+    #endif // SIMPLE_FUSION
     #endif // SGT_EXPORT_DATA_CSV
     }
 
@@ -182,16 +192,16 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     for (int lIdx = 0; lIdx < numOfLidObs; lIdx++)
     {
         //filter by x axis
-        if (lidarObs(0, lIdx) < LIDAR_X_MIN || lidarObs(0, lIdx) > LIDAR_X_MAX)
+        if (lidarObs(0, lIdx) < m_lidarFrameTF + LIDAR_X_MIN || lidarObs(0, lIdx) > m_lidarFrameTF + LIDAR_X_MAX)
             continue;
 
-        // asign meassurement model to meassurement
+        // asign measurement model to measurement
         for(int model = 0; model < N_OF_MODELS; model++)
         {
-            if (lidarObs(0, lIdx) < (LIDAR_X_MAX - LIDAR_X_MIN) / N_OF_MODELS * (model+1) + LIDAR_X_MIN)
+            if (lidarObs(0, lIdx) < (LIDAR_X_MAX - LIDAR_X_MIN) / N_OF_MODELS * (model+1) + LIDAR_X_MIN + m_lidarFrameTF)
             {
                 lidarObsAct = lidarObs.col(lIdx);
-            #ifdef OFFSET_CORRECTION
+            #ifdef ACCURACY_CORRECTION
                 lidarObsAct += m_lidarModel.block<1,2>(model,0).transpose();
             #endif
                 lidarCovAct(0,0) = m_lidarModel(model,2);
@@ -205,7 +215,8 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         if (fIdx >= 0)
         {
             m_KF.Update(m_fusionCones, m_fusionConesCov, fIdx, lidarObsAct, lidarCovAct);
-            m_modified(fIdx) += m_modified(fIdx) >= MAX_TRACKED_CONES_SCORE ? 0 : 1;
+            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= MAX_TRACKED_CONES_SCORE ? 0 : 1;
+            m_validationScore(fIdx) += m_validationScore(fIdx) > VALIDATION_SCORE_TH ? 0 : VALIDATION_SCORE_TH;
             m_stamps[fIdx] = fusionMsg.lidarData->points[lIdx].header.stamp;
 
         #ifdef SGT_EXPORT_DATA_CSV
@@ -219,25 +230,24 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         }
     }
 
-
     // update tracked detections
-    // throw away detections that weren't updated several times in a row
+    // - throw away detections that weren't updated several times in a row
     int pointer = 0;
     for (int fIdx = 0; fIdx < m_numOfCones; fIdx++)
     {   
-        if ((m_modified(fIdx)) > 0 && (m_fusionCones(0,fIdx) >= m_lidarFrameTF + LIDAR_X_MIN))
+        if ((m_vitalityScore(fIdx)) > 0 && (m_fusionCones(0,fIdx) >= m_cameraFrameTF + CAMERA_X_MIN + m_cameraModel(0,0)))
         {
-            //std::cout << m_fusionCones(0,fIdx) << ">=" << m_lidarFrameTF + LIDAR_X_MIN << std::endl;
             m_fusionCones.col(pointer) = m_fusionCones.col(fIdx);
             m_fusionConesCov.block<2,2>(2*pointer,0) = m_fusionConesCov.block<2,2>(2*fIdx,0);
             m_stamps[pointer] = m_stamps[fIdx];
             m_colors[pointer] = m_colors[fIdx];
-            m_modified(pointer) = m_modified(fIdx);
+            m_vitalityScore(pointer) = m_vitalityScore(fIdx);
+            m_validationScore(pointer) = m_validationScore(fIdx);
             
 
         #ifdef SGT_EXPORT_DATA_CSV
             Eigen::Vector2d fusionObsMap = TransformCoords(m_fusionCones.col(fIdx), m_stamps[fIdx]);
-            if (fusionObsMap != Eigen::Vector2d::Zero())
+            if (fusionObsMap != Eigen::Vector2d::Zero() && m_validationScore(fIdx) > VALIDATION_SCORE_TH)
             {
                 m_fusionData.block<2, 1>(2*fIdx, m_fusionDataCount(fIdx)) = fusionObsMap;
                 m_fusionDataCount(fIdx)++;
@@ -268,7 +278,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         else
         {
         #ifdef SGT_EXPORT_DATA_CSV
-            if (m_fusionDataCount(fIdx) > 0)
+            if (m_cameraDataCount(fIdx) > 0)
             {
                 WriteToDataFile(fIdx); 
             }   
@@ -279,7 +289,8 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         {   
             m_fusionCones.col(fIdx).setZero();
             m_fusionConesCov.block<2,2>(2*fIdx,0).setZero();
-            m_modified(fIdx) = 0;
+            m_vitalityScore(fIdx) = 0;
+            m_validationScore(fIdx) = 0;
 
         #ifdef SGT_EXPORT_DATA_CSV
             m_cameraData.block<2, DATA_SIZE_MAX>(2*fIdx, 0).setZero();
@@ -310,23 +321,26 @@ void Fusion::Do(const FusionMsg &fusionMsg)
 #ifdef FUSION_CONSOLE_SHOW
     std::cout << "number of cones: " << m_numOfCones << std::endl;
     std::cout << m_fusionCones << std:: endl;
+    //std::cout << "validation score:\n" << m_validationScore << std::endl;
 #endif
 
     // publish tracked detections
     for(int i = 0; i < m_numOfCones; i++)
     {
-        cone.coords.header.frame_id = m_baseFrameId;
-        cone.coords.header.seq = i;
-        cone.coords.header.stamp = m_stamps[i];
-        cone.coords.x = m_fusionCones(0, i);
-        cone.coords.y = m_fusionCones(1,i);
-        cone.color = m_colors[i];
+        if (m_validationScore(i) > VALIDATION_SCORE_TH)
+        {
+            cone.coords.header.frame_id = m_baseFrameId;
+            cone.coords.header.seq = i;
+            cone.coords.header.stamp = m_stamps[i];
+            cone.coords.x = m_fusionCones(0, i);
+            cone.coords.y = m_fusionCones(1,i);
+            cone.color = m_colors[i];
 
-        fusedCones->cones.push_back(cone);
+            fusedCones->cones.push_back(cone);
+        }
     }
     
-    if (m_numOfCones > 0)
-        m_publisher.publish(fusedCones);
+    m_publisher.publish(fusedCones);
 
 #ifdef SIMPLE_FUSION
     m_simpleFusionPub.publish(simpleFusionCones);
@@ -339,8 +353,8 @@ void Fusion::Do(const FusionMsg &fusionMsg)
 #endif
 }
 
-int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&meassurementSetCov,
-                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &meassurementMean, const Eigen::Ref<const Eigen::Matrix2d> &meassurementCov)
+/*int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&measurementSetCov,
+                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &measurementMean, const Eigen::Ref<const Eigen::Matrix2d> &measurementCov)
 {
     int minIdx = -1;
     float minDist = 100.0;
@@ -348,19 +362,23 @@ int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSet
     {
         for (int i = 0; i < setSize; i++)
         {
-            float dist = MahalanDist(meassurementSetMean.col(i), meassurementSetCov.block<2,2>(2*i,0),
-                meassurementMean, meassurementCov);
+            float dist = MahalanDist(measurementSetMean.col(i), measurementSetCov.block<2,2>(2*i,0),
+                measurementMean, measurementCov);
             if (dist <= m_distTH && dist < minDist)
             {
                 minIdx = i;
+                minDist = dist;
             }
         }
     }
     return minIdx;
-}
+}*/
 
-int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSetMean, int setSize, 
-        const Eigen::Ref<const Eigen::Vector2d> &meassurementMean)
+
+int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean, int setSize, 
+        const Eigen::Ref<const Eigen::Vector2d> &measurementMean)
+// returns index of the least distant measurement in a set
+// of measurements from a single measurement
 {
     int minIdx = -1;
     float minDist = 100.0;
@@ -368,17 +386,22 @@ int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSet
     {
         for (int i = 0; i < setSize; i++)
         {
-            float dist = EuclidDist(meassurementSetMean.col(i), meassurementMean);
+            // euclidean distance of vectors
+            float dist = (measurementSetMean.col(i) - measurementMean).norm();
+            //std::cout << "dist: " << dist << std::endl;
             if (dist <= m_distTH && dist < minDist)
             {
                 minIdx = i;
+                minDist = dist;
             }
         }
     }
+    //std::cout << "minDist: " << minDist << std::endl;
+    //std::cout << "minIdx: " << minIdx << std::endl;
     return minIdx;
 }
 
-float Fusion::MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
+/*float Fusion::MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
                         const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov)
 {
     Eigen::Vector2d diff = obsMean - setMean;
@@ -391,12 +414,7 @@ float Fusion::MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, cons
     //std::cout << "ED = " << sqrt(diffT * diff) << std::endl;
     //std::cout << "MD = " << mahDist << std::endl;
     return mahDist;
-}
-
-float Fusion::EuclidDist(const Eigen::Ref<const Eigen::Vector2d> &p1, const Eigen::Ref<const Eigen::Vector2d> &p2)
-{
-    return (p1 - p2).norm();
-}
+}*/
 
 #ifdef SGT_EXPORT_DATA_CSV
 void Fusion::OpenDataFile(std::string filename)
@@ -501,7 +519,8 @@ Eigen::Vector2d Fusion::TransformCoords(const Eigen::Ref<const Eigen::Vector2d> 
 {
     geometry_msgs::PointStamped coordsChildFrame = geometry_msgs::PointStamped();
     coordsChildFrame.header.frame_id = m_baseFrameId;
-    coordsChildFrame.header.stamp = ros::Time::now() - ros::Duration(0.005);
+    //coordsChildFrame.header.stamp = ros::Time::now() - ros::Duration(0.005);
+    coordsChildFrame.header.stamp = stamp;
     coordsChildFrame.point.x = obsBaseFrame(0);
     coordsChildFrame.point.y = obsBaseFrame(1);
     coordsChildFrame.point.z = 0.0;

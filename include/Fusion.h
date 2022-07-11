@@ -28,16 +28,21 @@
 #include "../../SGT_Macros.h"
 #include "../include/FusionKF.h"
 
-#define MAX_TRACKED_CONES_SCORE 4
-#define MAX_TRACKED_CONES_N 20
-#define N_OF_MODELS 2
+#define MAX_TRACKED_CONES_SCORE 4       // maximalna hodnota skore vitality sledovanych kuzelov
+#define MAX_TRACKED_CONES_N 20          // maximalny pocet sledovanych kuzelov
+#define N_OF_MODELS 2                   // pocet regionov modelov merania
 #define CAMERA_X_MIN 1.7
 #define CAMERA_X_MAX 8.0
 #define LIDAR_X_MIN 0.75
 #define LIDAR_X_MAX 8
-#define DATA_SIZE_MAX 150
+#define VALIDATION_SCORE_TH 2           // prahova hodnota validacneho skore pre publikovanie sledovaneho kuzela
+#define ACCURACY_CORRECTION             // ci sa ma robit korekcia presnosti
 
-#define OFFSET_CORRECTION
+#ifdef SGT_EXPORT_DATA_CSV
+    #define DATA_SIZE_MAX 300
+#endif
+
+
 
 
 class Fusion
@@ -63,6 +68,7 @@ class Fusion
             m_lidarModel = lidarModel;
         };
         void SetBaseFrameId(std::string baseFrame) { m_baseFrameId = baseFrame; };
+        void SetCameraFrameTF(float xTF) { m_cameraFrameTF = xTF; };
         void SetLidarFrameTF(float xTF) { m_lidarFrameTF = xTF; };
 
     #ifdef SGT_EXPORT_DATA_CSV
@@ -77,13 +83,14 @@ class Fusion
         void Do(const FusionMsg &fusionMsg);
    
     private:
-        float EuclidDist(const Eigen::Ref<const Eigen::Vector2d> &p1, const Eigen::Ref<const Eigen::Vector2d> &p2);
-        float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
+        /*float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
                         const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov);
-        int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&meassurementSetCov,
-                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &meassurementMean, const Eigen::Ref<const Eigen::Matrix2d> &meassurementCov);
-        int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &meassurementSetMean, int setSize, 
-        const Eigen::Ref<const Eigen::Vector2d> &meassurementMean);
+                        */
+        /*int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&measurementSetCov,
+                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &measurementMean, const Eigen::Ref<const Eigen::Matrix2d> &measurementCov);
+                        */
+        int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean, int setSize, 
+        const Eigen::Ref<const Eigen::Vector2d> &measurementMean);
 
         FusionKF m_KF;
         
@@ -93,16 +100,17 @@ class Fusion
         ros::Publisher m_simpleFusionPub;
     #endif
 
-        float m_distTH;
+        float m_distTH;     // distance treshold for data association
 
-        Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionCones;
+        Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionCones;    //tracked cones
 
     #ifdef SIMPLE_FUSION
         Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionSimpleCones;
     #endif
 
         Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, 2> m_fusionConesCov;
-        Eigen::Array<int, 1, MAX_TRACKED_CONES_N> m_modified;
+        Eigen::Array<int, 1, MAX_TRACKED_CONES_N> m_vitalityScore;
+        Eigen::Array<int, 1, MAX_TRACKED_CONES_N> m_validationScore;
         uint8_t m_colors[MAX_TRACKED_CONES_N];
         ros::Time m_stamps[MAX_TRACKED_CONES_N];
         int m_numOfCones;
@@ -112,6 +120,7 @@ class Fusion
 
         std::string m_baseFrameId;
 
+        float m_cameraFrameTF;
         float m_lidarFrameTF;
 
     #ifdef SGT_EXPORT_DATA_CSV

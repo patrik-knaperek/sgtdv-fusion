@@ -1,0 +1,9 @@
+distance_tolerance: 0.7
+
+base_frame: base_link
+camera_frame: camera_center
+lidar_frame: lidar
+
+# data export
+data_filename: fusion_data
+map_frame: odom
