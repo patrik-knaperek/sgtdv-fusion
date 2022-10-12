@@ -28,9 +28,10 @@
 #include "../../SGT_Macros.h"
 #include "../include/FusionKF.h"
 
+
 #define MAX_TRACKED_CONES_SCORE 4       // maximalna hodnota skore vitality sledovanych kuzelov
 #define MAX_TRACKED_CONES_N 20          // maximalny pocet sledovanych kuzelov
-#define N_OF_MODELS 2                   // pocet regionov modelov merania
+#define N_OF_MODELS 3                   // pocet regionov modelov merania
 #define CAMERA_X_MIN 1.7
 #define CAMERA_X_MAX 8.0
 #define LIDAR_X_MIN 0.75

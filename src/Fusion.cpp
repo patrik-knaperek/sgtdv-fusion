@@ -343,7 +343,10 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     m_publisher.publish(fusedCones);
 
 #ifdef SIMPLE_FUSION
-    m_simpleFusionPub.publish(simpleFusionCones);
+	if (simpleFusionCones->cones.size() > 0)
+	{
+    	m_simpleFusionPub.publish(simpleFusionCones);
+	}
 #endif
 
 #ifdef SGT_DEBUG_STATE
@@ -428,14 +431,20 @@ void Fusion::OpenDataFile(std::string filename)
     m_cameraDataFile.open(pathToFileCamera);
     if (!m_cameraDataFile.is_open())
         ROS_ERROR_STREAM("Could not open file " << pathToFileCamera << std::endl);
+    else
+	    std::cout << "File " << pathToFileCamera << " opened" << std::endl;
 
     m_lidarDataFile.open(pathToFileLidar);
     if (!m_lidarDataFile.is_open())
         ROS_ERROR_STREAM("Could not open file " << pathToFileLidar << std::endl);
+    else
+            std::cout << "File " << pathToFileLidar << " opened" << std::endl;
     
     m_fusionDataFile.open(pathToFileFusion);
     if (!m_fusionDataFile.is_open())
         ROS_ERROR_STREAM("Could not open file " << pathToFileFusion << std::endl);
+    else
+            std::cout << "File " << pathToFileFusion << " opened" << std::endl;
     
     m_mapDataFile.open(pathToFileMap);
     if (!m_mapDataFile.is_open())
@@ -519,7 +528,6 @@ Eigen::Vector2d Fusion::TransformCoords(const Eigen::Ref<const Eigen::Vector2d> 
 {
     geometry_msgs::PointStamped coordsChildFrame = geometry_msgs::PointStamped();
     coordsChildFrame.header.frame_id = m_baseFrameId;
-    //coordsChildFrame.header.stamp = ros::Time::now() - ros::Duration(0.005);
     coordsChildFrame.header.stamp = stamp;
     coordsChildFrame.point.x = obsBaseFrame(0);
     coordsChildFrame.point.y = obsBaseFrame(1);
