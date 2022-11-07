@@ -29,7 +29,8 @@
 #include "../include/FusionKF.h"
 
 
-#define MAX_TRACKED_CONES_SCORE 4       // maximalna hodnota skore vitality sledovanych kuzelov
+#define VITALITY_SCORE_INIT 2
+#define VITALITY_SCORE_MAX 4       // maximalna hodnota skore vitality sledovanych kuzelov
 #define MAX_TRACKED_CONES_N 20          // maximalny pocet sledovanych kuzelov
 #define N_OF_MODELS 3                   // pocet regionov modelov merania
 #define CAMERA_X_MIN 1.7

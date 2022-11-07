@@ -128,7 +128,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         if (fIdx >= 0)
         {   // run ekf-update with new detection
             m_KF.Update(m_fusionCones, m_fusionConesCov, fIdx, cameraObsAct, cameraCovAct);
-            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= MAX_TRACKED_CONES_SCORE ? 0 : 1;
+            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= VITALITY_SCORE_MAX ? 0 : 1;
             m_validationScore(fIdx) += m_validationScore(fIdx) > VALIDATION_SCORE_TH ? 0 : 1;
         }
         else
@@ -137,7 +137,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
             fIdx = m_numOfCones++;
             m_fusionCones.col(fIdx) = cameraObsAct;
             m_fusionConesCov.block<2,2>(2*fIdx, 0) = cameraCovAct;
-            m_vitalityScore(fIdx) = 2;
+            m_vitalityScore(fIdx) = VITALITY_SCORE_INIT;
             m_validationScore(fIdx) = 1;
         }
 
@@ -215,7 +215,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
         if (fIdx >= 0)
         {
             m_KF.Update(m_fusionCones, m_fusionConesCov, fIdx, lidarObsAct, lidarCovAct);
-            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= MAX_TRACKED_CONES_SCORE ? 0 : 1;
+            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= VITALITY_SCORE_MAX ? 0 : 1;
             m_validationScore(fIdx) += m_validationScore(fIdx) > VALIDATION_SCORE_TH ? 0 : VALIDATION_SCORE_TH;
             m_stamps[fIdx] = fusionMsg.lidarData->points[lIdx].header.stamp;
 
