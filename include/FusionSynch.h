@@ -20,10 +20,8 @@ class FusionSynch
             m_baseFrameId = baseFrame;
             m_fusionObj.SetBaseFrameId(baseFrame);
         };
-        void SetCameraFrameId(std::string cameraFrame) { m_cameraFrameId = cameraFrame; };
-        void SetLidarFrameId(std::string lidarFrame) { m_lidarFrameId = lidarFrame; };
-        float SetSensorFrameTF(std::string &sensorFrameId);
-
+        void SetCameraFrameId(std::string cameraFrame) { m_fusionObj.SetCameraFrameId(cameraFrame); };
+        void SetLidarFrameId(std::string lidarFrame) { m_fusionObj.SetLidarFrameId(lidarFrame); };       
         void SetPublisher(ros::Publisher publisher
         #ifdef SIMPLE_FUSION
             , ros::Publisher simpleFusionPub
@@ -59,8 +57,5 @@ class FusionSynch
         FusionMsg m_fusionMsg;
 
         std::string m_baseFrameId;
-        std::string m_cameraFrameId;
-        std::string m_lidarFrameId;
-
         tf::TransformListener m_listener;
 };

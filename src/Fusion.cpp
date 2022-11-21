@@ -8,6 +8,8 @@
 
 Fusion::Fusion()
 {
+    this->GetSensorFrameTF();
+    
     m_fusionCones = Eigen::Matrix2Xd::Zero(2,MAX_TRACKED_CONES_N);
     m_fusionConesCov = Eigen::MatrixX2d::Zero(2*MAX_TRACKED_CONES_N,2);
     m_vitalityScore.setZero();
@@ -53,6 +55,20 @@ Fusion::~Fusion()
 #endif // SGT_EXPORT_DATA_CSV
 }
 
+void Fusion::GetSensorFrameTF()
+{
+    tf::StampedTransform cameraFrameTF = tf::StampedTransform();
+    tf::StampedTransform lidarFrameTF = tf::StampedTransform();
+    try
+    {
+        m_listener.lookupTransform(m_baseFrameId, m_cameraFrameId, ros::Time(0), m_cameraFrameTF);
+        m_listener.lookupTransform(m_baseFrameId, m_lidarFrameId, ros::Time(0), m_lidarFrameTF);
+    }
+    catch(const std::exception& e)
+    {
+        std::cout << e.what();
+    }
+}
 
 void Fusion::Do(const FusionMsg &fusionMsg)
 {   
@@ -105,13 +121,13 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     for (int cIdx = 0; cIdx < numOfCamObs; cIdx++)
     {
         // filter measurement by x axis
-        if (cameraObs(0, cIdx) < m_cameraFrameTF + CAMERA_X_MIN || cameraObs(0, cIdx) > m_cameraFrameTF + CAMERA_X_MAX)
+        if (cameraObs(0, cIdx) < m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MIN || cameraObs(0, cIdx) > m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MAX)
             continue;
         
         // asign measurement model to measurement
         for(int model = 0; model < N_OF_MODELS; model++)
         {
-            if (cameraObs(0, cIdx) < (CAMERA_X_MAX - CAMERA_X_MIN) / N_OF_MODELS * (model+1) + m_cameraFrameTF + CAMERA_X_MIN)
+            if (cameraObs(0, cIdx) < (CAMERA_X_MAX - CAMERA_X_MIN) / N_OF_MODELS * (model+1) + m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MIN)
             {
                 cameraObsAct = cameraObs.col(cIdx);
             #ifdef ACCURACY_CORRECTION
@@ -192,13 +208,13 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     for (int lIdx = 0; lIdx < numOfLidObs; lIdx++)
     {
         //filter by x axis
-        if (lidarObs(0, lIdx) < m_lidarFrameTF + LIDAR_X_MIN || lidarObs(0, lIdx) > m_lidarFrameTF + LIDAR_X_MAX)
+        if (lidarObs(0, lIdx) < m_lidarFrameTF.getOrigin().getX() + LIDAR_X_MIN || lidarObs(0, lIdx) > m_lidarFrameTF.getOrigin().getX() + LIDAR_X_MAX)
             continue;
 
         // asign measurement model to measurement
         for(int model = 0; model < N_OF_MODELS; model++)
         {
-            if (lidarObs(0, lIdx) < (LIDAR_X_MAX - LIDAR_X_MIN) / N_OF_MODELS * (model+1) + LIDAR_X_MIN + m_lidarFrameTF)
+            if (lidarObs(0, lIdx) < (LIDAR_X_MAX - LIDAR_X_MIN) / N_OF_MODELS * (model+1) + LIDAR_X_MIN + m_lidarFrameTF.getOrigin().getX())
             {
                 lidarObsAct = lidarObs.col(lIdx);
             #ifdef ACCURACY_CORRECTION
@@ -235,7 +251,7 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     int pointer = 0;
     for (int fIdx = 0; fIdx < m_numOfCones; fIdx++)
     {   
-        if ((m_vitalityScore(fIdx)) > 0 && (m_fusionCones(0,fIdx) >= m_cameraFrameTF + CAMERA_X_MIN + m_cameraModel(0,0)))
+        if ((m_vitalityScore(fIdx)) > 0 && (m_fusionCones(0,fIdx) >= m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MIN + m_cameraModel(0,0)))
         {
             m_fusionCones.col(pointer) = m_fusionCones.col(fIdx);
             m_fusionConesCov.block<2,2>(2*pointer,0) = m_fusionConesCov.block<2,2>(2*fIdx,0);

@@ -70,8 +70,8 @@ class Fusion
             m_lidarModel = lidarModel;
         };
         void SetBaseFrameId(std::string baseFrame) { m_baseFrameId = baseFrame; };
-        void SetCameraFrameTF(float xTF) { m_cameraFrameTF = xTF; };
-        void SetLidarFrameTF(float xTF) { m_lidarFrameTF = xTF; };
+        void SetCameraFrameId(std::string cameraFrame) { m_cameraFrameId = cameraFrame; };
+        void SetLidarFrameId(std::string lidarFrame) { m_lidarFrameId = lidarFrame; };
 
     #ifdef SGT_EXPORT_DATA_CSV
         void OpenDataFile(std::string filename);
@@ -85,6 +85,7 @@ class Fusion
         void Do(const FusionMsg &fusionMsg);
    
     private:
+        void GetSensorFrameTF(void);
         /*float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
                         const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov);
                         */
@@ -121,16 +122,16 @@ class Fusion
         Eigen::Matrix<double, N_OF_MODELS, 4> m_lidarModel;
 
         std::string m_baseFrameId;
-
-        float m_cameraFrameTF;
-        float m_lidarFrameTF;
+        std::string m_cameraFrameId;
+        std::string m_lidarFrameId;
+        tf::StampedTransform m_cameraFrameTF;
+        tf::StampedTransform m_lidarFrameTF;
+        tf::TransformListener m_listener;
 
     #ifdef SGT_EXPORT_DATA_CSV
         void WriteToDataFile(int Idx);
         Eigen::Vector2d TransformCoords(const Eigen::Ref<const Eigen::Vector2d> &obsBaseFrame, ros::Time stamp);
         Eigen::Vector2d TransformCoords(const sgtdv_msgs::Point2D &obs);
-
-        tf::TransformListener m_listener;
 
         Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_cameraData;
         Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_lidarData;
