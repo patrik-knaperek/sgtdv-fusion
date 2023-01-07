@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sgtdv_msgs
+  roslib
   tf
   tf_conversions
 )
@@ -135,7 +136,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME} src/Fusion.cpp src/FusionNODE.cpp src/FusionSynch.cpp)
+add_executable(${PROJECT_NAME} src/Fusion.cpp src/FusionNODE.cpp src/FusionSynch.cpp src/FusionKF.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

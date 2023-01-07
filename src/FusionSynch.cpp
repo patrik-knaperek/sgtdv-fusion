@@ -1,6 +1,6 @@
 /*****************************************************/
 //Organization: Stuba Green Team
-//Authors: Juraj Krasňanský
+//Authors: Juraj Krasňanský, Patrik Knaperek
 /*****************************************************/
 
 
@@ -17,57 +17,60 @@ FusionSynch::~FusionSynch()
     
 }
 
-void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msgSensorFrame)
+void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 {
     if (m_cameraReady && !m_lidarReady) return;
 
-    int conesCount = msgSensorFrame->cones.size();
+    int conesCount = msg->cones.size();
     if (conesCount == 0) return;
 
     m_cameraReady = true;
 
-    geometry_msgs::PointStamped coordsSensorFrame = geometry_msgs::PointStamped();
-    coordsSensorFrame.header.frame_id = m_cameraFrameId;
-    coordsSensorFrame.header.stamp = ros::Time::now();
-    
-    sgtdv_msgs::ConeArrPtr msgFixedFrame(new sgtdv_msgs::ConeArr);
+    geometry_msgs::PointStamped coordsMsgFrame = geometry_msgs::PointStamped();
+    geometry_msgs::PointStamped coordsBaseFrame = geometry_msgs::PointStamped();
+    sgtdv_msgs::ConeArrPtr msgBaseFrame(new sgtdv_msgs::ConeArr);
     sgtdv_msgs::Cone cone;
-    msgFixedFrame->cones.reserve(conesCount);
+    msgBaseFrame->cones.reserve(conesCount);
 
-    for (int i = 0; i < conesCount; i++)
+    for (size_t i = 0; i < conesCount; i++)
     {
-        if (std::isnan(msgSensorFrame->cones[i].coords.x) || std::isnan(msgSensorFrame->cones[i].coords.y))
+        if (std::isnan(msg->cones[i].coords.x) || std::isnan(msg->cones[i].coords.y))
             continue;
         
-        coordsSensorFrame.point.x = msgSensorFrame->cones[i].coords.x;
-        coordsSensorFrame.point.y = msgSensorFrame->cones[i].coords.y;
-        coordsSensorFrame.point.z = 0;
+        coordsMsgFrame.header = msg->cones[i].coords.header;
+        coordsMsgFrame.point.x = msg->cones[i].coords.x;
+        coordsMsgFrame.point.y = msg->cones[i].coords.y;
+        coordsMsgFrame.point.z = 0;
 
-        geometry_msgs::PointStamped coordsFixedFrame = TransformCoords(coordsSensorFrame);
+        if (coordsMsgFrame.header.frame_id.compare(m_baseFrameId) != 0)
+            coordsBaseFrame = TransformCoords(coordsMsgFrame);
+        else
+            coordsBaseFrame = coordsMsgFrame;
         
-        cone.coords.x = coordsFixedFrame.point.x;
-        cone.coords.y = coordsFixedFrame.point.y;
-        cone.color = msgSensorFrame->cones[i].color;
-        msgFixedFrame->cones.push_back(cone);
+        cone.coords.header = coordsBaseFrame.header;
+        cone.coords.x = coordsBaseFrame.point.x;
+        cone.coords.y = coordsBaseFrame.point.y;
+        cone.color = msg->cones[i].color;
+        msgBaseFrame->cones.push_back(cone);
 
     }
 
-    if (msgFixedFrame->cones.size() > 0)
+    if (msgBaseFrame->cones.size() > 0)
     {
         if (m_cameraReady && m_lidarReady)
         {
             m_cameraReady = false;
             m_lidarReady = false;
-            m_fusionMsg.cameraData = msgFixedFrame;
+            m_fusionMsg.cameraData = msgBaseFrame;
 		#ifdef FUSION_CONSOLE_SHOW
             std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
             std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
 		#endif
-            m_fusion.Do(m_fusionMsg);
+            m_fusionObj.Do(m_fusionMsg);
         }
         else
         {
-            m_fusionMsg.cameraData = msgFixedFrame;
+            m_fusionMsg.cameraData = msgBaseFrame;
         }    
     }
     else
@@ -77,50 +80,53 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msgSensorFrame)
     }
 }
 
-void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msgSensorFrame)
+void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
 {
     if (m_lidarReady && !m_cameraReady) return;
 
-    int pointsCount = msgSensorFrame->points.size();
+    int pointsCount = msg->points.size();
     if (pointsCount == 0) return;
 
     m_lidarReady = true;
 
-    geometry_msgs::PointStamped coordsSensorFrame = geometry_msgs::PointStamped();
-    coordsSensorFrame.header.frame_id = m_lidarFrameId;
-    coordsSensorFrame.header.stamp = ros::Time::now();
-    
-    sgtdv_msgs::Point2DArrPtr msgFixedFrame(new sgtdv_msgs::Point2DArr);
+    geometry_msgs::PointStamped coordsMsgFrame = geometry_msgs::PointStamped();
+    geometry_msgs::PointStamped coordsBaseFrame = geometry_msgs::PointStamped();
+    sgtdv_msgs::Point2DArrPtr msgBaseFrame(new sgtdv_msgs::Point2DArr);
     sgtdv_msgs::Point2D point;
-    msgFixedFrame->points.reserve(pointsCount);
+    msgBaseFrame->points.reserve(pointsCount);
 
-     for (int i = 0; i < pointsCount; i++)
+     for (size_t i = 0; i < pointsCount; i++)
     {
-        coordsSensorFrame.point.x = msgSensorFrame->points[i].x;
-        coordsSensorFrame.point.y = msgSensorFrame->points[i].y;
-        coordsSensorFrame.point.z = 0;
+        coordsMsgFrame.header = msg->points[i].header;
+        coordsMsgFrame.point.x = msg->points[i].x;
+        coordsMsgFrame.point.y = msg->points[i].y;
+        coordsMsgFrame.point.z = 0;
 
-        geometry_msgs::PointStamped coordsFixedFrame = TransformCoords(coordsSensorFrame);
+        if (coordsMsgFrame.header.frame_id.compare(m_baseFrameId) != 0)
+            coordsBaseFrame = TransformCoords(coordsMsgFrame);
+        else
+            coordsBaseFrame = coordsMsgFrame;
         
-        point.x = coordsFixedFrame.point.x;
-        point.y = coordsFixedFrame.point.y;
-        msgFixedFrame->points.push_back(point);
+        point.header = coordsBaseFrame.header;
+        point.x = coordsBaseFrame.point.x;
+        point.y = coordsBaseFrame.point.y;
+        msgBaseFrame->points.push_back(point);
     }
 
     if (m_cameraReady && m_lidarReady)
     {
         m_cameraReady = false;
         m_lidarReady = false;
-        m_fusionMsg.lidarData = msgFixedFrame;
+        m_fusionMsg.lidarData = msgBaseFrame;
 	#ifdef FUSION_CONSOLE_SHOW
         std::cout << "fusion msg lidar size: " << m_fusionMsg.lidarData->points.size() << std::endl;
         std::cout << "fusion msg camera size: " << m_fusionMsg.cameraData->cones.size() << std::endl;
 	#endif
-        m_fusion.Do(m_fusionMsg);
+        m_fusionObj.Do(m_fusionMsg);
     }
     else
     {
-        m_fusionMsg.lidarData = msgFixedFrame;
+        m_fusionMsg.lidarData = msgBaseFrame;
     }    
 }
 
@@ -129,7 +135,7 @@ geometry_msgs::PointStamped FusionSynch::TransformCoords(geometry_msgs::PointSta
     geometry_msgs::PointStamped coordsParentFrame = geometry_msgs::PointStamped();
     try
     {
-        m_listener.transformPoint(m_fixedFrameId, coordsChildFrame, coordsParentFrame);
+        m_listener.transformPoint(m_baseFrameId, coordsChildFrame, coordsParentFrame);
     }
     catch (tf::TransformException &e)
     {

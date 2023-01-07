@@ -1,0 +1,9 @@
+distance_tolerance: 1.5
+
+base_frame: gotthard/base_link
+camera_frame: gotthard/base_link
+lidar_frame: fssim/vehicle/front_center_lidar_link
+
+# data export
+data_filename: fusion_data_sim
+map_frame: fssim_map
