@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <sgtdv_msgs/ConeArr.h>
-#include <sgtdv_msgs/Point2DArr.h>
+#include <sgtdv_msgs/ConeStampedArr.h>
+#include <sgtdv_msgs/Point2DStampedArr.h>
 
 struct FusionMsg
 {
-    sgtdv_msgs::ConeArr::ConstPtr cameraData;
-    sgtdv_msgs::Point2DArr::ConstPtr lidarData;
+    sgtdv_msgs::ConeStampedArr::ConstPtr cameraData;
+    sgtdv_msgs::Point2DStampedArr::ConstPtr lidarData;
 };

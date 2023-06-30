@@ -17,7 +17,7 @@ FusionSynch::~FusionSynch()
     
 }
 
-void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
+void FusionSynch::DoCamera(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg)
 {
     if (m_cameraReady && !m_lidarReady) return;
 
@@ -28,8 +28,8 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
 
     geometry_msgs::PointStamped coordsMsgFrame = geometry_msgs::PointStamped();
     geometry_msgs::PointStamped coordsBaseFrame = geometry_msgs::PointStamped();
-    sgtdv_msgs::ConeArrPtr msgBaseFrame(new sgtdv_msgs::ConeArr);
-    sgtdv_msgs::Cone cone;
+    sgtdv_msgs::ConeStampedArrPtr msgBaseFrame(new sgtdv_msgs::ConeStampedArr);
+    sgtdv_msgs::ConeStamped cone;
     msgBaseFrame->cones.reserve(conesCount);
 
     for (size_t i = 0; i < conesCount; i++)
@@ -80,7 +80,7 @@ void FusionSynch::DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg)
     }
 }
 
-void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
+void FusionSynch::DoLidar(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg)
 {
     if (m_lidarReady && !m_cameraReady) return;
 
@@ -91,8 +91,8 @@ void FusionSynch::DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg)
 
     geometry_msgs::PointStamped coordsMsgFrame = geometry_msgs::PointStamped();
     geometry_msgs::PointStamped coordsBaseFrame = geometry_msgs::PointStamped();
-    sgtdv_msgs::Point2DArrPtr msgBaseFrame(new sgtdv_msgs::Point2DArr);
-    sgtdv_msgs::Point2D point;
+    sgtdv_msgs::Point2DStampedArrPtr msgBaseFrame(new sgtdv_msgs::Point2DStampedArr);
+    sgtdv_msgs::Point2DStamped point;
     msgBaseFrame->points.reserve(pointsCount);
 
      for (size_t i = 0; i < pointsCount; i++)

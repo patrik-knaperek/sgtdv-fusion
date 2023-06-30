@@ -21,8 +21,8 @@
 #include <visualization_msgs/MarkerArray.h>
 
 // SGT
-#include <sgtdv_msgs/ConeArr.h>
-#include <sgtdv_msgs/Point2DArr.h>
+#include <sgtdv_msgs/ConeStampedArr.h>
+#include <sgtdv_msgs/Point2DStampedArr.h>
 #include <sgtdv_msgs/DebugState.h>
 #include "../include/Messages.h"
 #include "../../SGT_Macros.h"

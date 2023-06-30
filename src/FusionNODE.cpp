@@ -16,9 +16,9 @@ int main(int argc, char** argv)
     ros::NodeHandle handle;
     FusionSynch synchObj;
 
-    ros::Publisher publisher = handle.advertise<sgtdv_msgs::ConeArr>("fusion_cones", 1);
+    ros::Publisher publisher = handle.advertise<sgtdv_msgs::ConeStampedArr>("fusion_cones", 1);
 #ifdef SIMPLE_FUSION
-    ros::Publisher simpleFusionPub = handle.advertise<sgtdv_msgs::ConeArr>("fusion_simple_cones", 1);
+    ros::Publisher simpleFusionPub = handle.advertise<sgtdv_msgs::ConeStampedArr>("fusion_simple_cones", 1);
 #endif
     synchObj.SetPublisher(publisher
     #ifdef SIMPLE_FUSION

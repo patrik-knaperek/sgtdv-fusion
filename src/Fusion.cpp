@@ -330,8 +330,8 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     m_numOfCones = pointer;
 
     // create and publish Fusion message
-    sgtdv_msgs::ConeArrPtr fusedCones( new sgtdv_msgs::ConeArr );
-    sgtdv_msgs::Cone cone;
+    sgtdv_msgs::ConeStampedArrPtr fusedCones( new sgtdv_msgs::ConeStampedArr );
+    sgtdv_msgs::ConeStamped cone;
  
     fusedCones->cones.reserve(m_numOfCones);
 #ifdef FUSION_CONSOLE_SHOW
