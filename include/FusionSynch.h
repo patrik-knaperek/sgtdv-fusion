@@ -46,8 +46,8 @@ class FusionSynch
         void SetVisDebugPublisher(ros::Publisher publisher) { m_fusionObj.SetVisDebugPublisher(publisher); }
     #endif
 
-        void DoCamera(const sgtdv_msgs::ConeArr::ConstPtr &msg);
-        void DoLidar(const sgtdv_msgs::Point2DArr::ConstPtr &msg);
+        void DoCamera(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg);
+        void DoLidar(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg);
         geometry_msgs::PointStamped TransformCoords(geometry_msgs::PointStamped coordsChildFrame);
 
     private:

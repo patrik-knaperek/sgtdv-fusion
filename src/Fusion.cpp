@@ -114,8 +114,8 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     Eigen::Matrix2d lidarCovAct = Eigen::Matrix2d::Zero(2,2);
 
 #ifdef SIMPLE_FUSION
-    sgtdv_msgs::ConeArrPtr simpleFusionCones (new sgtdv_msgs::ConeArr);
-    sgtdv_msgs::Cone simpleFusionCone;
+    sgtdv_msgs::ConeStampedArrPtr simpleFusionCones (new sgtdv_msgs::ConeStampedArr);
+    sgtdv_msgs::ConeStamped simpleFusionCone;
     simpleFusionCones->cones.reserve(numOfCamObs);
 #endif
     for (int cIdx = 0; cIdx < numOfCamObs; cIdx++)
@@ -330,8 +330,8 @@ void Fusion::Do(const FusionMsg &fusionMsg)
     m_numOfCones = pointer;
 
     // create and publish Fusion message
-    sgtdv_msgs::ConeArrPtr fusedCones( new sgtdv_msgs::ConeArr );
-    sgtdv_msgs::Cone cone;
+    sgtdv_msgs::ConeStampedArrPtr fusedCones( new sgtdv_msgs::ConeStampedArr );
+    sgtdv_msgs::ConeStamped cone;
  
     fusedCones->cones.reserve(m_numOfCones);
 #ifdef FUSION_CONSOLE_SHOW
@@ -562,7 +562,7 @@ Eigen::Vector2d Fusion::TransformCoords(const Eigen::Ref<const Eigen::Vector2d> 
     return obsMapFrame;
 }
 
-Eigen::Vector2d Fusion::TransformCoords(const sgtdv_msgs::Point2D &obs)
+Eigen::Vector2d Fusion::TransformCoords(const sgtdv_msgs::Point2DStamped &obs)
 {
     return TransformCoords(Eigen::Vector2d(obs.x, obs.y), obs.header.stamp);
 }
