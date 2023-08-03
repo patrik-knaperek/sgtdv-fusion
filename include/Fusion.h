@@ -131,7 +131,7 @@ class Fusion
     #ifdef SGT_EXPORT_DATA_CSV
         void WriteToDataFile(int Idx);
         Eigen::Vector2d TransformCoords(const Eigen::Ref<const Eigen::Vector2d> &obsBaseFrame, ros::Time stamp);
-        Eigen::Vector2d TransformCoords(const sgtdv_msgs::Point2D &obs);
+        Eigen::Vector2d TransformCoords(const sgtdv_msgs::Point2DStamped &obs);
 
         Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_cameraData;
         Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_lidarData;
