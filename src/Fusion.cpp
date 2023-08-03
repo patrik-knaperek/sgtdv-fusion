@@ -1,569 +1,451 @@
 /*****************************************************/
 //Organization: Stuba Green Team
-//Authors: Juraj Krasňanský, Patrik Knaperek
+//Authors: Patrik Knaperek
 /*****************************************************/
-
 
 #include "../include/Fusion.h"
 
-Fusion::Fusion()
+Fusion::Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher)
+: publisher_(publisher)
 {
-    this->GetSensorFrameTF();
-    
-    m_fusionCones = Eigen::Matrix2Xd::Zero(2,MAX_TRACKED_CONES_N);
-    m_fusionConesCov = Eigen::MatrixX2d::Zero(2*MAX_TRACKED_CONES_N,2);
-    m_vitalityScore.setZero();
-    m_validationScore.setZero();
-    m_numOfCones = 0;
+  loadParams(handle);
+  getSensorFrameTF();
 
 #ifdef SGT_EXPORT_DATA_CSV
-    m_cameraData.setZero();
-    m_lidarData.setZero();
-    m_fusionData.setZero();
-    m_cameraDataCount.setZero();
-    m_lidarDataCount.setZero();
-    m_fusionDataCount.setZero();
-
-#ifdef SIMPLE_FUSION
-    m_simpleFusionData.setZero();
-    m_simpleFusionDataCount.setZero();
-#endif
-
-#endif // SGT_EXPORT_DATA_CSV
+  openDataFiles();
+#endif /* SGT_EXPORT_DATA_CSV */
 }
 
 Fusion::~Fusion()
 {
 #ifdef SGT_EXPORT_DATA_CSV
-    for (int i = 0; i < m_numOfCones; i++)
-    {
-        if (m_fusionDataCount(i) > 0)
-            {
-                WriteToDataFile(i); 
-            }
-    }
+	for (int i = 0; i < num_of_tracked_; i++)
+	{
+		if (fusion_data_[i].size() > 0)
+		{
+			writeToDataFile(i); 
+		}
+	}
 
-    m_cameraDataFile.close();
-    m_lidarDataFile.close();
-    m_fusionDataFile.close();
-    m_mapDataFile.close();
-
-#ifdef SIMPLE_FUSION
-    m_simpleFusionDataFile.close();
-#endif
-
-#endif // SGT_EXPORT_DATA_CSV
+	camera_data_file_.close();
+	lidar_data_file_.close();
+	fusion_data_file_.close();
+	map_data_file_.close();
+#endif /* SGT_EXPORT_DATA_CSV */
 }
 
-void Fusion::GetSensorFrameTF()
+void Fusion::loadParams(const ros::NodeHandle& handle)
 {
-    tf::StampedTransform cameraFrameTF = tf::StampedTransform();
-    tf::StampedTransform lidarFrameTF = tf::StampedTransform();
-    try
-    {
-        m_listener.lookupTransform(m_baseFrameId, m_cameraFrameId, ros::Time(0), m_cameraFrameTF);
-        m_listener.lookupTransform(m_baseFrameId, m_lidarFrameId, ros::Time(0), m_lidarFrameTF);
-    }
-    catch(const std::exception& e)
-    {
-        std::cout << e.what();
-    }
+  ROS_INFO("LOADING PARAMETERS");
+
+  Utils::loadParam(handle, "/base_frame_id", &params_.base_frame_id);
+  Utils::loadParam(handle, "/camera/frame_id", &params_.camera_frame_id);
+	Utils::loadParam(handle, "/camera/x_min", &params_.camera_x_min);
+	Utils::loadParam(handle, "/camera/x_max", &params_.camera_x_max);
+  Utils::loadParam(handle, "/lidar/frame_id", &params_.lidar_frame_id);
+	Utils::loadParam(handle, "/lidar/x_min", &params_.lidar_x_min);
+	Utils::loadParam(handle, "/lidar/x_max", &params_.lidar_x_max);
+  Utils::loadParam(handle, "/distance_tolerance", &params_.dist_th);
+	Utils::loadParam(handle,"/number_of_models", &params_.n_of_models);
+	
+	params_.camera_model = Eigen::MatrixXd::Zero(params_.n_of_models, 4);
+	params_.camera_model.block(0,0,params_.n_of_models,2) 
+		= Utils::loadArray(handle, std::string("/camera/offset"), params_.n_of_models, 2);
+	params_.camera_model.block(0,2,params_.n_of_models,2) 
+		= Utils::loadArray(handle, std::string("/camera/covariance"), params_.n_of_models, 2);
+
+	params_.lidar_model = Eigen::MatrixXd::Zero(params_.n_of_models, 4);
+	params_.lidar_model.block(0,0,params_.n_of_models,2) 
+		= Utils::loadArray(handle, std::string("/lidar/offset"), params_.n_of_models, 2);
+	params_.lidar_model.block(0,2,params_.n_of_models,2) 
+		= Utils::loadArray(handle, std::string("/lidar/covariance"), params_.n_of_models, 2);
+
+#ifdef SGT_EXPORT_DATA_CSV
+	Utils::loadParam(handle, "/data_filename", &params_.data_filename);
+	Utils::loadParam(handle, "/map_frame", &params_.map_frame_id);
+#endif /* SGT_EXPORT_DATA_CSV */
+	}
+
+void Fusion::getSensorFrameTF()
+{
+	
+	if (params_.base_frame_id != params_.camera_frame_id)
+	{
+		tf::StampedTransform camera_frame_tf;
+		try
+		{
+			listener_.lookupTransform(params_.base_frame_id, params_.camera_frame_id, ros::Time::now(), camera_frame_tf);
+		}
+		catch(const std::exception& e)
+		{
+			std::cout << e.what();
+		}
+		camera_frame_tf_x_ = camera_frame_tf.getOrigin().getX();
+	}
+	else 
+		camera_frame_tf_x_ = 0.;
+	
+	if (params_.base_frame_id != params_.lidar_frame_id)
+	{
+		tf::StampedTransform lidar_frame_tf;
+		try
+		{
+			listener_.lookupTransform(params_.base_frame_id, params_.lidar_frame_id, ros::Time::now(), lidar_frame_tf);
+		}
+		catch(const std::exception& e)
+		{
+			std::cout << e.what();
+		}
+		lidar_frame_tf_x_ = lidar_frame_tf.getOrigin().getX();
+	}
+	else
+		lidar_frame_tf_x_ = 0.;
+	
+	ROS_DEBUG_STREAM("camera TF:\n" << camera_frame_tf_x_);
 }
 
-void Fusion::Do(const FusionMsg &fusionMsg)
+void Fusion::update(const FusionMsg &fusion_msg)
 {   
 #ifdef SGT_DEBUG_STATE
-    sgtdv_msgs::DebugState state;
-    state.workingState = 1;
-    m_visDebugPublisher.publish(state);
+	sgtdv_msgs::DebugState state;
+	state.workingState = 1;
+	vis_debug_publisher_.publish(state);
 #endif
-
-    if (m_numOfCones > 0)
-        m_vitalityScore -= 1;
-
-    // extract data from input message
-    int numOfCamObs = fusionMsg.cameraData->cones.size();
-    int numOfLidObs = fusionMsg.lidarData->points.size();
-
-    Eigen::Matrix2Xd cameraObs(2, numOfCamObs);
-    Eigen::Matrix2Xd lidarObs(2, numOfLidObs);
-
-    for (int i = 0; i < numOfCamObs; i++)
-    {
-        cameraObs(0, i) = fusionMsg.cameraData->cones[i].coords.x;
-        cameraObs(1, i) = fusionMsg.cameraData->cones[i].coords.y;
-    }
-
-    for (int i = 0; i < numOfLidObs; i++)
-    {
-        lidarObs(0, i) = fusionMsg.lidarData->points[i].x;
-        lidarObs(1, i) = fusionMsg.lidarData->points[i].y;
-    }
-
-    // KF prediction step for all tracked cones
-    if (m_numOfCones > 0)
-    {
-        m_KF.Predict(m_fusionCones, m_fusionConesCov, m_numOfCones);
-    }
-
-    // search in CAMERA detections
-    int fIdx;
-    Eigen::Vector2d cameraObsAct;
-    Eigen::Matrix2d cameraCovAct = Eigen::Matrix2d::Zero(2,2);
-    Eigen::Vector2d lidarObsAct;
-    Eigen::Matrix2d lidarCovAct = Eigen::Matrix2d::Zero(2,2);
-
-#ifdef SIMPLE_FUSION
-    sgtdv_msgs::ConeStampedArrPtr simpleFusionCones (new sgtdv_msgs::ConeStampedArr);
-    sgtdv_msgs::ConeStamped simpleFusionCone;
-    simpleFusionCones->cones.reserve(numOfCamObs);
-#endif
-    for (int cIdx = 0; cIdx < numOfCamObs; cIdx++)
-    {
-        // filter measurement by x axis
-        if (cameraObs(0, cIdx) < m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MIN || cameraObs(0, cIdx) > m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MAX)
-            continue;
-        
-        // asign measurement model to measurement
-        for(int model = 0; model < N_OF_MODELS; model++)
-        {
-            if (cameraObs(0, cIdx) < (CAMERA_X_MAX - CAMERA_X_MIN) / N_OF_MODELS * (model+1) + m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MIN)
-            {
-                cameraObsAct = cameraObs.col(cIdx);
-            #ifdef ACCURACY_CORRECTION
-                cameraObsAct += m_cameraModel.block<1,2>(model,0).transpose();
-            #endif
-                cameraCovAct(0,0) = m_cameraModel(model,2);
-                cameraCovAct(1,1) = m_cameraModel(model,3);
-                break;
-            }
-        }
-        
-        // associate and ekf-update with tracked detections
-        fIdx = MinDistIdx(m_fusionCones, m_numOfCones, cameraObsAct);
-        if (fIdx >= 0)
-        {   // run ekf-update with new detection
-            m_KF.Update(m_fusionCones, m_fusionConesCov, fIdx, cameraObsAct, cameraCovAct);
-            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= VITALITY_SCORE_MAX ? 0 : 1;
-            m_validationScore(fIdx) += m_validationScore(fIdx) > VALIDATION_SCORE_TH ? 0 : 1;
-        }
-        else
-        {   
-            // add to tracked detections
-            fIdx = m_numOfCones++;
-            m_fusionCones.col(fIdx) = cameraObsAct;
-            m_fusionConesCov.block<2,2>(2*fIdx, 0) = cameraCovAct;
-            m_vitalityScore(fIdx) = VITALITY_SCORE_INIT;
-            m_validationScore(fIdx) = 1;
-        }
-
-        // update color and stamp information
-        m_colors[fIdx] = fusionMsg.cameraData->cones[cIdx].color;
-        m_stamps[fIdx] = fusionMsg.cameraData->cones[cIdx].coords.header.stamp;
-
-    #ifdef SIMPLE_FUSION
-        int lIdx = MinDistIdx(lidarObs, numOfLidObs, cameraObs.col(cIdx));
-        if (lIdx >= 0)
-        {
-            simpleFusionCone.coords.header = fusionMsg.lidarData->points[lIdx].header;
-            simpleFusionCone.coords.x 
-                = (fusionMsg.cameraData->cones[cIdx].coords.x + fusionMsg.lidarData->points[lIdx].x) / 2;
-            simpleFusionCone.coords.y 
-                = (fusionMsg.cameraData->cones[cIdx].coords.y + fusionMsg.lidarData->points[lIdx].y) / 2;
-        }
-        else
-        {
-            simpleFusionCone.coords = fusionMsg.cameraData->cones[cIdx].coords;
-        }
-        //std::cout << "cIdx" << cIdx << std::endl;
-        //std::cout << simpleFusionCone.coords << std::endl;
-        simpleFusionCone.color = fusionMsg.cameraData->cones[cIdx].color;
-        simpleFusionCones->cones.push_back(simpleFusionCone);
-    #endif // SIMPLE_FUSION    
-
-
-    #ifdef SGT_EXPORT_DATA_CSV
-
-        Eigen::Vector2d cameraObsMap = TransformCoords(fusionMsg.cameraData->cones[cIdx].coords);
-        if (cameraObsMap != Eigen::Vector2d::Zero())
-        {
-            std::cout << m_cameraDataCount(fIdx) << std::endl;
-            m_cameraData.block<2, 1>(2*fIdx, m_cameraDataCount(fIdx)) = cameraObsMap; 
-            m_cameraDataCount(fIdx)++;
-        }
-
-    #ifdef SIMPLE_FUSION
-        Eigen::Vector2d simpleFusionMap = TransformCoords(simpleFusionCone.coords);
-        if (simpleFusionMap != Eigen::Vector2d::Zero())
-        {
-            m_simpleFusionData.block<2, 1>(2*fIdx, m_simpleFusionDataCount(fIdx)) = simpleFusionMap;
-            m_simpleFusionDataCount(fIdx)++;
-        }
-    #endif // SIMPLE_FUSION
-    #endif // SGT_EXPORT_DATA_CSV
-    }
-
-
-    //search in LIDAR detections
-    for (int lIdx = 0; lIdx < numOfLidObs; lIdx++)
-    {
-        //filter by x axis
-        if (lidarObs(0, lIdx) < m_lidarFrameTF.getOrigin().getX() + LIDAR_X_MIN || lidarObs(0, lIdx) > m_lidarFrameTF.getOrigin().getX() + LIDAR_X_MAX)
-            continue;
-
-        // asign measurement model to measurement
-        for(int model = 0; model < N_OF_MODELS; model++)
-        {
-            if (lidarObs(0, lIdx) < (LIDAR_X_MAX - LIDAR_X_MIN) / N_OF_MODELS * (model+1) + LIDAR_X_MIN + m_lidarFrameTF.getOrigin().getX())
-            {
-                lidarObsAct = lidarObs.col(lIdx);
-            #ifdef ACCURACY_CORRECTION
-                lidarObsAct += m_lidarModel.block<1,2>(model,0).transpose();
-            #endif
-                lidarCovAct(0,0) = m_lidarModel(model,2);
-                lidarCovAct(1,1) = m_lidarModel(model,3);
-                break;
-            }
-        }
-        
-        // associate and ekf-update with tracked detection
-        fIdx = MinDistIdx(m_fusionCones, m_numOfCones, lidarObsAct);
-        if (fIdx >= 0)
-        {
-            m_KF.Update(m_fusionCones, m_fusionConesCov, fIdx, lidarObsAct, lidarCovAct);
-            m_vitalityScore(fIdx) += m_vitalityScore(fIdx) >= VITALITY_SCORE_MAX ? 0 : 1;
-            m_validationScore(fIdx) += m_validationScore(fIdx) > VALIDATION_SCORE_TH ? 0 : VALIDATION_SCORE_TH;
-            m_stamps[fIdx] = fusionMsg.lidarData->points[lIdx].header.stamp;
-
-        #ifdef SGT_EXPORT_DATA_CSV
-            Eigen::Vector2d lidarObsMap = TransformCoords(fusionMsg.lidarData->points[lIdx]);
-            if (lidarObsMap != Eigen::Vector2d::Zero())
-            {
-                m_lidarData.block<2, 1>(2*fIdx, m_lidarDataCount(fIdx)) = lidarObsMap; 
-                m_lidarDataCount(fIdx)++;
-            }
-        #endif
-        }
-    }
-
-    // update tracked detections
-    // - throw away detections that weren't updated several times in a row
-    int pointer = 0;
-    for (int fIdx = 0; fIdx < m_numOfCones; fIdx++)
-    {   
-        if ((m_vitalityScore(fIdx)) > 0 && (m_fusionCones(0,fIdx) >= m_cameraFrameTF.getOrigin().getX() + CAMERA_X_MIN + m_cameraModel(0,0)))
-        {
-            m_fusionCones.col(pointer) = m_fusionCones.col(fIdx);
-            m_fusionConesCov.block<2,2>(2*pointer,0) = m_fusionConesCov.block<2,2>(2*fIdx,0);
-            m_stamps[pointer] = m_stamps[fIdx];
-            m_colors[pointer] = m_colors[fIdx];
-            m_vitalityScore(pointer) = m_vitalityScore(fIdx);
-            m_validationScore(pointer) = m_validationScore(fIdx);
-            
-
-        #ifdef SGT_EXPORT_DATA_CSV
-            Eigen::Vector2d fusionObsMap = TransformCoords(m_fusionCones.col(fIdx), m_stamps[fIdx]);
-            if (fusionObsMap != Eigen::Vector2d::Zero() && m_validationScore(fIdx) > VALIDATION_SCORE_TH)
-            {
-                m_fusionData.block<2, 1>(2*fIdx, m_fusionDataCount(fIdx)) = fusionObsMap;
-                m_fusionDataCount(fIdx)++;
-            }
-            
-            m_cameraData.row(2*pointer) = m_cameraData.row(2*fIdx);
-            m_cameraData.row(2*pointer+1) = m_cameraData.row(2*fIdx+1);
-            m_cameraDataCount(pointer) = m_cameraDataCount(fIdx);
-
-            m_lidarData.row(2*pointer) = m_lidarData.row(2*fIdx);
-            m_lidarData.row(2*pointer+1) = m_lidarData.row(2*fIdx+1);
-            m_lidarDataCount(pointer) = m_lidarDataCount(fIdx);
-            
-            m_fusionData.row(2*pointer) = m_fusionData.row(2*fIdx);
-            m_fusionData.row(2*pointer+1) = m_fusionData.row(2*fIdx+1);
-            m_fusionDataCount(pointer) = m_fusionDataCount(fIdx);
-
-        #ifdef SIMPLE_FUSION
-            m_simpleFusionData.row(2*pointer) = m_simpleFusionData.row(2*fIdx);
-            m_simpleFusionData.row(2*pointer+1) = m_simpleFusionData.row(2*fIdx+1);
-            m_simpleFusionDataCount(pointer) = m_simpleFusionDataCount(fIdx);
-        #endif // SIMPLE_FUSION
-
-        #endif // SGT_EXPORT_DATA_CSV
-            
-            pointer++;
-        }
-        else
-        {
-        #ifdef SGT_EXPORT_DATA_CSV
-            if (m_cameraDataCount(fIdx) > 0)
-            {
-                WriteToDataFile(fIdx); 
-            }   
-        #endif
-        }
-
-        if (pointer <= fIdx)
-        {   
-            m_fusionCones.col(fIdx).setZero();
-            m_fusionConesCov.block<2,2>(2*fIdx,0).setZero();
-            m_vitalityScore(fIdx) = 0;
-            m_validationScore(fIdx) = 0;
-
-        #ifdef SGT_EXPORT_DATA_CSV
-            m_cameraData.block<2, DATA_SIZE_MAX>(2*fIdx, 0).setZero();
-            m_lidarData.block<2, DATA_SIZE_MAX>(2*fIdx, 0).setZero();
-            m_fusionData.block<2, DATA_SIZE_MAX>(2*fIdx, 0).setZero();
-                
-            m_cameraDataCount(fIdx) = 0;
-            m_lidarDataCount(fIdx) = 0;
-            m_fusionDataCount(fIdx) = 0;
-
-        #ifdef SIMPLE_FUSION
-
-            m_simpleFusionData.block<2, DATA_SIZE_MAX>(2*fIdx, 0).setZero();
-            m_simpleFusionDataCount(fIdx) = 0;
-        #endif // SIMPLE_FUSION
-
-        #endif // SGT_EXPORT_DATA_CSV
-        }
-    }
-    
-    m_numOfCones = pointer;
-
-    // create and publish Fusion message
-    sgtdv_msgs::ConeStampedArrPtr fusedCones( new sgtdv_msgs::ConeStampedArr );
-    sgtdv_msgs::ConeStamped cone;
- 
-    fusedCones->cones.reserve(m_numOfCones);
-#ifdef FUSION_CONSOLE_SHOW
-    std::cout << "number of cones: " << m_numOfCones << std::endl;
-    std::cout << m_fusionCones << std:: endl;
-    //std::cout << "validation score:\n" << m_validationScore << std::endl;
-#endif
-
-    // publish tracked detections
-    for(int i = 0; i < m_numOfCones; i++)
-    {
-        if (m_validationScore(i) > VALIDATION_SCORE_TH)
-        {
-            cone.coords.header.frame_id = m_baseFrameId;
-            cone.coords.header.seq = i;
-            cone.coords.header.stamp = m_stamps[i];
-            cone.coords.x = m_fusionCones(0, i);
-            cone.coords.y = m_fusionCones(1,i);
-            cone.color = m_colors[i];
-
-            fusedCones->cones.push_back(cone);
-        }
-    }
-    
-    m_publisher.publish(fusedCones);
-
-#ifdef SIMPLE_FUSION
-	if (simpleFusionCones->cones.size() > 0)
+	
+	/* KF prediction step for all tracked cones */
+	ROS_DEBUG("KF Predict");
+	KF_obj_.updateTimeAndPoseDelta();
+	if (num_of_tracked_ > 0)
 	{
-    	m_simpleFusionPub.publish(simpleFusionCones);
+		for (auto& cone : tracked_cones_)
+		{
+			KF_obj_.predict(cone.state, cone.covariance);
+			cone.vitality_score -=1;
+		}
 	}
-#endif
+
+	static std::list<TrackedCone>::iterator associate_it;
+	static Eigen::Vector2d camera_obs_act, lidar_obs_act;
+	static Eigen::Matrix2d camera_cov_act, lidar_cov_act;
+	
+	/* search in CAMERA detections */
+	ROS_DEBUG("searching in camera detections");
+	for (const auto& observation : fusion_msg.camera_data->cones)
+	{
+		ROS_DEBUG_STREAM("coords: " << observation.coords);
+		/* filter measurement by x axis */
+		if (observation.coords.x < camera_frame_tf_x_ + params_.camera_x_min 
+			|| observation.coords.x > camera_frame_tf_x_ + params_.camera_x_max)
+			continue;
+		
+		/* asign measurement model to measurement */
+		for(int model = 0; model < params_.n_of_models; model++)
+		{
+			if (observation.coords.x < 
+				(params_.camera_x_max - params_.camera_x_min) / params_.n_of_models * (model+1) + camera_frame_tf_x_ + params_.camera_x_min)
+			{
+				camera_obs_act << observation.coords.x, observation.coords.y;
+				camera_obs_act += params_.camera_model.block(model,0,1,2).transpose();
+				camera_cov_act << params_.camera_model(model,2), 0, 0, params_.camera_model(model,3);
+				break;
+			}
+		}
+		
+		/* associate and ekf-update with tracked detections */
+		if (findClosestTracked(camera_obs_act, &associate_it))
+		{   
+			/* run ekf-update with new detection */
+			ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
+			KF_obj_.update(associate_it->state, associate_it->covariance, camera_obs_act, camera_cov_act);
+			associate_it->vitality_score += (associate_it->vitality_score >= VITALITY_SCORE_MAX) ? 0 : 1;
+			associate_it->validation_score += (associate_it->validation_score > VALIDATION_SCORE_TH) ? 0 : 1;
+		}
+		else
+		{   
+			/* add to tracked detections */
+			ROS_DEBUG("Adding new tracked cone");
+			tracked_cones_.emplace_back(TrackedCone(camera_obs_act));
+			associate_it = --tracked_cones_.end();
+		
+		#ifdef SGT_EXPORT_DATA_CSV
+			camera_data_.push_back(std::list<Eigen::Vector2d>());
+			lidar_data_.push_back(std::list<Eigen::Vector2d>());
+			fusion_data_.push_back(std::list<Eigen::Vector2d>());
+		#endif /* SGT_EXPORT_DATA_CSV */
+		}
+
+		/* update color and stamp information */
+		associate_it->color = observation.color;
+		associate_it->stamp = observation.coords.header.stamp;
+
+	#ifdef SGT_EXPORT_DATA_CSV
+		Eigen::Vector2d camera_obs_map = transformCoords(observation.coords);
+		if (camera_obs_map != Eigen::Vector2d::Zero())
+		{
+			camera_data_.at(std::distance(tracked_cones_.begin(), associate_it)).push_back(camera_obs_map);
+		}
+	#endif /* SGT_EXPORT_DATA_CSV */
+	}
+
+	/* search in LIDAR detections */
+	ROS_DEBUG("searching in lidar detections");
+	for (const auto& observation : fusion_msg.lidar_data->points)
+	{
+		/* filter by x axis */
+		if (observation.x < lidar_frame_tf_x_ + params_.lidar_x_min || observation.x > lidar_frame_tf_x_ + params_.lidar_x_max)
+			continue;
+
+		/* asign measurement model to measurement */
+		for(int model = 0; model < params_.n_of_models; model++)
+		{
+			if (observation.x < 
+				(params_.lidar_x_max - params_.lidar_x_min) / params_.n_of_models * (model+1) + params_.lidar_x_min + lidar_frame_tf_x_)
+			{
+				lidar_obs_act << observation.x, observation.y;
+				lidar_obs_act += params_.lidar_model.block(model,0,1,2).transpose();
+				lidar_cov_act << params_.lidar_model(model,2), 0,
+							  				 0, params_.lidar_model(model,3);
+				break;
+			}
+		}
+		
+		/* associate and ekf-update with tracked detection */
+		if (findClosestTracked(lidar_obs_act, &associate_it))
+		{
+			ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
+			KF_obj_.update(associate_it->state, associate_it->covariance, lidar_obs_act, lidar_cov_act);
+			associate_it->vitality_score += (associate_it->vitality_score >= VITALITY_SCORE_MAX) ? 0 : 1;
+			associate_it->validation_score += 
+				(associate_it->validation_score > VALIDATION_SCORE_TH) ? 0 : VALIDATION_SCORE_TH;
+			associate_it->stamp = observation.header.stamp;
+
+		#ifdef SGT_EXPORT_DATA_CSV
+			Eigen::Vector2d lidar_obs_map = transformCoords(observation);
+			ROS_DEBUG_STREAM("transformed coords: " << lidar_obs_map);
+			if (lidar_obs_map != Eigen::Vector2d::Zero())
+			{
+				lidar_data_.at(std::distance(tracked_cones_.begin(), associate_it)).push_back(lidar_obs_map);
+			}
+		#endif
+		}
+	}
+
+	/* update tracked detections */
+	/* - throw away detections that weren't updated several times in a row */
+	ROS_DEBUG("Tracked cones:");
+	for (auto cone_it = tracked_cones_.begin(); cone_it != tracked_cones_.end(); cone_it++)
+	{
+		ROS_DEBUG_STREAM("\n" << cone_it->state);
+		if (!(cone_it->vitality_score > 0)
+			|| cone_it->state(0) < camera_frame_tf_x_ + params_.camera_x_min + params_.camera_model(0,0))
+			{
+				auto coneItTemp = cone_it--;
+				tracked_cones_.erase(coneItTemp);
+				
+		#ifdef SGT_EXPORT_DATA_CSV
+			const int idx = std::distance(tracked_cones_.begin(), cone_it);
+			if (camera_data_.at(idx).size() > 0)
+			{
+				writeToDataFile(idx); 
+			}  
+
+			camera_data_.erase(std::next(camera_data_.begin(), idx));
+			lidar_data_.erase(std::next(lidar_data_.begin(), idx)); 
+			fusion_data_.erase(std::next(fusion_data_.begin(), idx)); 
+		#endif /* SGT_EXPORT_DATA_CSV */
+			
+		}
+		else
+		{
+		#ifdef SGT_EXPORT_DATA_CSV
+			Eigen::Vector2d fusion_obs_map = transformCoords(cone_it->state.head<2>(), cone_it->stamp);
+			if (fusion_obs_map != Eigen::Vector2d::Zero() && cone_it->validation_score > VALIDATION_SCORE_TH)
+			{
+				fusion_data_.at(std::distance(tracked_cones_.begin(), cone_it)).push_back(fusion_obs_map);
+			}
+		#endif /* SGT_EXPORT_DATA_CSV */
+		}
+	}
+	
+	num_of_tracked_ = tracked_cones_.size();
+
+	/* create and publish Fusion message */
+	sgtdv_msgs::ConeStampedArr fused_cones;
+	static sgtdv_msgs::ConeStamped cone;
+	
+	try
+	{
+		fused_cones.cones.reserve(num_of_tracked_);
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << '\n';
+	}
+	
+	ROS_DEBUG_STREAM("number of cones: " << num_of_tracked_);
+	
+	/* publish tracked detections */
+	int i = 0;
+	for(const auto& tracked : tracked_cones_)
+	{
+		if (tracked.validation_score > VALIDATION_SCORE_TH)
+		{
+			cone.coords.header.frame_id = params_.base_frame_id;
+			cone.coords.header.seq = i++;
+			cone.coords.header.stamp = tracked.stamp;
+			cone.coords.x = tracked.state(0);
+			cone.coords.y = tracked.state(1);
+			cone.color = tracked.color;
+
+			fused_cones.cones.push_back(cone);
+		}
+	}
+	publisher_.publish(fused_cones);
 
 #ifdef SGT_DEBUG_STATE
-    state.workingState = 0;
-    state.numOfCones = static_cast<uint32_t>(m_numOfCones);
-    m_visDebugPublisher.publish(state);
+	state.workingState = 0;
+	state.numOfCones = static_cast<uint32_t>(num_of_tracked_);
+	vis_debug_publisher_.publish(state);
 #endif
 }
 
-/*int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&measurementSetCov,
-                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &measurementMean, const Eigen::Ref<const Eigen::Matrix2d> &measurementCov)
+bool Fusion::findClosestTracked(const Eigen::Ref<const Eigen::Vector2d> &measurement, 
+								std::list<TrackedCone>::iterator *closest_it)
 {
-    int minIdx = -1;
-    float minDist = 100.0;
-    if (setSize > 0)
-    {
-        for (int i = 0; i < setSize; i++)
-        {
-            float dist = MahalanDist(measurementSetMean.col(i), measurementSetCov.block<2,2>(2*i,0),
-                measurementMean, measurementCov);
-            if (dist <= m_distTH && dist < minDist)
-            {
-                minIdx = i;
-                minDist = dist;
-            }
-        }
-    }
-    return minIdx;
-}*/
-
-
-int Fusion::MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean, int setSize, 
-        const Eigen::Ref<const Eigen::Vector2d> &measurementMean)
-// returns index of the least distant measurement in a set
-// of measurements from a single measurement
-{
-    int minIdx = -1;
-    float minDist = 100.0;
-    if (setSize > 0)
-    {
-        for (int i = 0; i < setSize; i++)
-        {
-            // euclidean distance of vectors
-            float dist = (measurementSetMean.col(i) - measurementMean).norm();
-            //std::cout << "dist: " << dist << std::endl;
-            if (dist <= m_distTH && dist < minDist)
-            {
-                minIdx = i;
-                minDist = dist;
-            }
-        }
-    }
-    //std::cout << "minDist: " << minDist << std::endl;
-    //std::cout << "minIdx: " << minIdx << std::endl;
-    return minIdx;
+	bool success = false;
+	double min_dist = std::numeric_limits<double>::max();
+	if (tracked_cones_.size() > 0)
+	{
+		for (auto cone_it = tracked_cones_.begin(); cone_it != tracked_cones_.end(); cone_it++)
+		{
+			/* eucliedean distance of vectors */
+			auto dist = (cone_it->state.head<2>() - measurement).norm();
+			if (dist <= params_.dist_th && dist < min_dist)
+			{
+				if (!success) success = true;
+				*closest_it = cone_it;
+				min_dist = dist;
+			}
+		}
+	}
+	ROS_DEBUG_STREAM("min_dist: " << min_dist);
+	return success;
 }
 
+/* TODO */
 /*float Fusion::MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
-                        const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov)
+						const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov)
 {
-    Eigen::Vector2d diff = obsMean - setMean;
-    Eigen::RowVector2d diffT = diff.transpose();
-    
-    Eigen::RowVector2d temp = diffT * setCov.inverse();
-    double mahDist2 = temp * diff;
-    float mahDist = sqrt(mahDist2);
+	Eigen::Vector2d diff = obsMean - setMean;
+	Eigen::RowVector2d diffT = diff.transpose();
+	
+	Eigen::RowVector2d temp = diffT * setCov.inverse();
+	double mahDist2 = temp * diff;
+	float mahDist = sqrt(mahDist2);
 
-    //std::cout << "ED = " << sqrt(diffT * diff) << std::endl;
-    //std::cout << "MD = " << mahDist << std::endl;
-    return mahDist;
+	//std::cout << "ED = " << sqrt(diffT * diff) << std::endl;
+	//std::cout << "MD = " << mahDist << std::endl;
+	return mahDist;
 }*/
 
 #ifdef SGT_EXPORT_DATA_CSV
-void Fusion::OpenDataFile(std::string filename)
+void Fusion::openDataFiles(void)
 {
-    std::string pathToPackage = ros::package::getPath("fusion");
-    std::string pathToFileCamera = pathToPackage + std::string("/data/" + filename + "_camera.csv");
-    std::string pathToFileLidar = pathToPackage + std::string("/data/" + filename + "_lidar.csv");
-    std::string pathToFileFusion = pathToPackage + std::string("/data/" + filename + "_fusion.csv");
-    std::string pathToFileMap = pathToPackage + std::string("/data/" + filename + "_map.csv");
+	const auto path_to_package = ros::package::getPath("fusion");
+	const auto path_to_camera_file = path_to_package + std::string("/data/" + params_.data_filename + "_camera.csv");
+	const auto path_to_lidar_file = path_to_package + std::string("/data/" + params_.data_filename + "_lidar.csv");
+	const auto path_to_fusion_file = path_to_package + std::string("/data/" + params_.data_filename + "_fusion.csv");
+	const auto path_to_map_file = path_to_package + std::string("/data/" + params_.data_filename + "_map.csv");
 
-    m_cameraDataFile.open(pathToFileCamera);
-    if (!m_cameraDataFile.is_open())
-        ROS_ERROR_STREAM("Could not open file " << pathToFileCamera << std::endl);
-    else
-	    std::cout << "File " << pathToFileCamera << " opened" << std::endl;
-
-    m_lidarDataFile.open(pathToFileLidar);
-    if (!m_lidarDataFile.is_open())
-        ROS_ERROR_STREAM("Could not open file " << pathToFileLidar << std::endl);
-    else
-            std::cout << "File " << pathToFileLidar << " opened" << std::endl;
-    
-    m_fusionDataFile.open(pathToFileFusion);
-    if (!m_fusionDataFile.is_open())
-        ROS_ERROR_STREAM("Could not open file " << pathToFileFusion << std::endl);
-    else
-            std::cout << "File " << pathToFileFusion << " opened" << std::endl;
-    
-    m_mapDataFile.open(pathToFileMap);
-    if (!m_mapDataFile.is_open())
-        ROS_ERROR_STREAM("Could not open file " << pathToFileMap << std::endl);
-
-#ifdef SIMPLE_FUSION
-    std::string pathToFileSimpleFusion = pathToPackage + std::string("/data/" + filename + "_simple_fusion.csv");
-    m_simpleFusionDataFile.open(pathToFileSimpleFusion);
-    if (!m_simpleFusionDataFile.is_open())
-        ROS_ERROR_STREAM("Could not open file " << pathToFileSimpleFusion << std::endl);
-#endif
+	openFile(camera_data_file_, path_to_camera_file);
+	openFile(lidar_data_file_,path_to_lidar_file);
+	openFile(fusion_data_file_, path_to_fusion_file);
+	openFile(map_data_file_, path_to_map_file);
 }
 
-void Fusion::WriteToDataFile(int Idx)
+bool Fusion::openFile(std::ofstream& file, const std::string& path)
 {
-    m_cameraDataFile << m_cameraDataCount(Idx);
-    m_lidarDataFile << m_lidarDataCount(Idx);
-    m_fusionDataFile << m_fusionDataCount(Idx);
-#ifdef SIMPLE_FUSION
-    m_simpleFusionDataFile << m_simpleFusionDataCount(Idx);
-#endif
-    for (int i = 0; i < DATA_SIZE_MAX; i++)
-    {
-        m_cameraDataFile << ", " << m_cameraData(2*Idx, i);
-        m_lidarDataFile << ", " << m_lidarData(2*Idx, i);
-        m_fusionDataFile << ", " << m_fusionData(2*Idx, i);
-    #ifdef SIMPLE_FUSION
-        m_simpleFusionDataFile << ", " << m_simpleFusionData(2*Idx, i);
-    #endif
-    }
-    
-    m_cameraDataFile << "\n" << m_cameraDataCount(Idx);
-    m_lidarDataFile << "\n" << m_lidarDataCount(Idx);
-    m_fusionDataFile << "\n" << m_fusionDataCount(Idx);
-#ifdef SIMPLE_FUSION
-    m_simpleFusionDataFile << "\n" << m_simpleFusionDataCount(Idx);
-#endif
-    for (int i = 0; i < DATA_SIZE_MAX; i++)
-    {
-        m_cameraDataFile << ", " << m_cameraData(2*Idx+1, i);
-        m_lidarDataFile << ", " << m_lidarData(2*Idx+1, i);
-        m_fusionDataFile << ", " << m_fusionData(2*Idx+1, i);
-    #ifdef SIMPLE_FUSION
-        m_simpleFusionDataFile << ", " << m_simpleFusionData(2*Idx+1, i);
-    #endif    
-    }
-    m_cameraDataFile << std::endl;
-    m_lidarDataFile << std::endl;
-    m_fusionDataFile << std::endl;
-#ifdef SIMPLE_FUSION
-    m_simpleFusionDataFile << std::endl;
-#endif    
+	file.open(path);
+	if (!file.is_open())
+	{
+		ROS_ERROR_STREAM("Could not open file " << path);
+		return false;
+	}
+	else
+	{
+		ROS_INFO_STREAM("File " << path << " opened");
+		return true;
+	}
 }
 
-void Fusion::WriteMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg)
+void Fusion::writeToDataFile(int idx)
 {
-    int size = msg->markers.size();
-    double *mapX = new double[size];
-    double *mapY = new double[size];
+	ROS_DEBUG("Writing to file");
+	camera_data_file_ << camera_data_.at(idx).size();
+	lidar_data_file_ << lidar_data_.at(idx).size();
+	fusion_data_file_ << fusion_data_.at(idx).size();
+	
+	for (const auto& data : camera_data_.at(idx)) camera_data_file_ << ", " << data(0);
+	for (const auto& data : lidar_data_.at(idx)) lidar_data_file_ << ", " << data(0);
+	for (const auto& data : fusion_data_.at(idx)) fusion_data_file_ << ", " << data(0);
 
-    for (int i = 0; i < size; i++)
-    {
-        mapX[i] = msg->markers[i].pose.position.x;
-        mapY[i] = msg->markers[i].pose.position.y;
-    }
+	camera_data_file_ << "\n" << camera_data_.at(idx).size();;
+	lidar_data_file_ << "\n" << lidar_data_.at(idx).size();;
+	fusion_data_file_ << "\n" << fusion_data_.at(idx).size();;
 
-    for (int i = 0; i < size; i++)
-    {
-        m_mapDataFile << mapX[i] << ", ";
-    }
-    m_mapDataFile << std::endl;
+	for (const auto& data : camera_data_.at(idx)) camera_data_file_ << ", " << data(1);
+	for (const auto& data : lidar_data_.at(idx)) lidar_data_file_ << ", " << data(1);
+	for (const auto& data : fusion_data_.at(idx)) fusion_data_file_ << ", " << data(1);
 
-    for (int i = 0; i < size; i++)
-    {
-        m_mapDataFile << mapY[i] << ", ";
-    }
-    m_mapDataFile << std::endl;
+	camera_data_file_ << std::endl;
+	lidar_data_file_ << std::endl;
+	fusion_data_file_ << std::endl;
 }
 
-Eigen::Vector2d Fusion::TransformCoords(const Eigen::Ref<const Eigen::Vector2d> &obsBaseFrame, ros::Time stamp)
+void Fusion::writeMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg)
 {
-    geometry_msgs::PointStamped coordsChildFrame = geometry_msgs::PointStamped();
-    coordsChildFrame.header.frame_id = m_baseFrameId;
-    coordsChildFrame.header.stamp = stamp;
-    coordsChildFrame.point.x = obsBaseFrame(0);
-    coordsChildFrame.point.y = obsBaseFrame(1);
-    coordsChildFrame.point.z = 0.0;
-    
-    geometry_msgs::PointStamped coordsParentFrame = geometry_msgs::PointStamped();
-    try
-    {
-        m_listener.transformPoint(m_mapFrameId, coordsChildFrame, coordsParentFrame);
-    }
-    catch (tf::TransformException &e)
-    {
-        std::cout << e.what();
-    }
-    Eigen::Vector2d obsMapFrame(coordsParentFrame.point.x, coordsParentFrame.point.y);
-    return obsMapFrame;
+	const int size = msg->markers.size();
+	std::vector<double> mapX, mapY;
+	mapX.reserve(size);
+	mapY.reserve(size);
+	
+	for (const auto& marker : msg->markers)
+	{
+		mapX.push_back(marker.pose.position.x);
+		mapY.push_back(marker.pose.position.y);
+	}
+
+	for (const auto& i : mapX) map_data_file_ << i << ", ";
+	map_data_file_ << std::endl;
+
+	for (const auto& i : mapY) map_data_file_ << i << ", ";
+	map_data_file_ << std::endl;
 }
 
-Eigen::Vector2d Fusion::TransformCoords(const sgtdv_msgs::Point2DStamped &obs)
+Eigen::Vector2d Fusion::transformCoords(const Eigen::Ref<const Eigen::Vector2d> &obs_base_frame, ros::Time stamp) const
 {
-    return TransformCoords(Eigen::Vector2d(obs.x, obs.y), obs.header.stamp);
+	geometry_msgs::PointStamped coords_child_frame;
+	coords_child_frame.header.frame_id = params_.base_frame_id;
+	coords_child_frame.header.stamp = stamp;
+	coords_child_frame.point.x = obs_base_frame(0);
+	coords_child_frame.point.y = obs_base_frame(1);
+	coords_child_frame.point.z = 0.0;
+	
+	geometry_msgs::PointStamped coords_parent_frame;
+	try
+	{
+		listener_.transformPoint(params_.map_frame_id, coords_child_frame, coords_parent_frame);
+	}
+	catch (tf::TransformException &e)
+	{
+		std::cout << e.what();
+	}
+	
+	return Eigen::Vector2d(coords_parent_frame.point.x, coords_parent_frame.point.y);
 }
-#endif //SGT_EXPORT_DATA_CSV
+
+Eigen::Vector2d Fusion::transformCoords(const sgtdv_msgs::Point2DStamped &obs) const
+{
+	return transformCoords(Eigen::Vector2d(obs.x, obs.y), obs.header.stamp);
+}
+#endif /* SGT_EXPORT_DATA_CSV */

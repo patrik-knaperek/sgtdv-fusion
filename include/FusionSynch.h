@@ -10,52 +10,28 @@
 
 class FusionSynch
 {
-    public:
-        FusionSynch();
-        ~FusionSynch();
+	public:
+		FusionSynch(const ros::NodeHandle& handle, const ros::Publisher& publisher);
+		~FusionSynch() = default;
 
-        // Setters
-        void SetBaseFrameId(std::string baseFrame) 
-        { 
-            m_baseFrameId = baseFrame;
-            m_fusionObj.SetBaseFrameId(baseFrame);
-        };
-        void SetCameraFrameId(std::string cameraFrame) { m_fusionObj.SetCameraFrameId(cameraFrame); };
-        void SetLidarFrameId(std::string lidarFrame) { m_fusionObj.SetLidarFrameId(lidarFrame); };       
-        void SetPublisher(ros::Publisher publisher
-        #ifdef SIMPLE_FUSION
-            , ros::Publisher simpleFusionPub
-        #endif
-        ) { m_fusionObj.SetPublisher(publisher
-        #ifdef SIMPLE_FUSION
-        , simpleFusionPub
-        #endif
-        ); };
-        void SetDistanceTol(float tol) { m_fusionObj.SetDistanceTol(tol); };
-        void SetMeassurementModels(Eigen::Matrix<double, N_OF_MODELS, 4> cameraModel, Eigen::Matrix<double, N_OF_MODELS, 4> lidarModel)
-        {
-            m_fusionObj.SetMeassurementModels(cameraModel, lidarModel);
-        };
-        
-    #ifdef SGT_EXPORT_DATA_CSV
-        void OpenDataFile(std::string dataFilename) { m_fusionObj.OpenDataFile(dataFilename); };
-        void SetMapFrameId(std::string mapFrame) { m_fusionObj.SetMapFrameId(mapFrame); };
-        void MapCallback(const visualization_msgs::MarkerArray::ConstPtr &msg) { m_fusionObj.WriteMapToFile(msg); };
-    #endif
-    #ifdef SGT_DEBUG_STATE
-        void SetVisDebugPublisher(ros::Publisher publisher) { m_fusionObj.SetVisDebugPublisher(publisher); }
-    #endif
+	#ifdef SGT_EXPORT_DATA_CSV
+		void mapCallback(const visualization_msgs::MarkerArray::ConstPtr &msg) { fusion_obj_.writeMapToFile(msg); };
+	#endif
+	#ifdef SGT_DEBUG_STATE
+		void setVisDebugPublisher(ros::Publisher publisher) { fusion_obj_.setVisDebugPublisher(publisher); }
+	#endif
 
-        void DoCamera(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg);
-        void DoLidar(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg);
-        geometry_msgs::PointStamped TransformCoords(geometry_msgs::PointStamped coordsChildFrame);
+		void cameraCallback(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg);
+		void lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg);
+		void poseCallback(const sgtdv_msgs::CarPose::ConstPtr &msg);
+		geometry_msgs::PointStamped transformCoords(const geometry_msgs::PointStamped& coords_child_frame) const;
 
-    private:
-        Fusion m_fusionObj;
-        bool m_cameraReady; 
-        bool m_lidarReady;
-        FusionMsg m_fusionMsg;
+	private:
+		Fusion fusion_obj_;
+		bool camera_ready_ = false; 
+		bool lidar_ready_ = false;
+		FusionMsg fusion_msg_;
 
-        std::string m_baseFrameId;
-        tf::TransformListener m_listener;
+		std::string base_frame_id_;
+		tf::TransformListener listener_;
 };

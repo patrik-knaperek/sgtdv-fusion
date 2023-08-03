@@ -1,8 +1,14 @@
 distance_tolerance: 1.5
 
-base_frame: gotthard/base_link
-camera_frame: gotthard/base_link
-lidar_frame: fssim/vehicle/front_center_lidar_link
+base_frame_id: gotthard/base_link
+camera:
+  frame_id: gotthard/base_link
+  x_min: 2.2
+  x_max: 10.0
+lidar:
+  frame_id: gotthard/base_link
+  x_min: 1.5
+  x_max: 10.0
 
 # data export
 data_filename: fusion_data_sim

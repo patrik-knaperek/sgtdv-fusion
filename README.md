@@ -35,31 +35,23 @@ The following packages have to be built at first:
   * `calibration`
 
 In folder `ros_implementation/src/` run:
-```
-$ catkin build fusion
+```sh
+ $ catkin build fusion
 ```
 
 ### Compilation configuration
 
 * `SGT_Macros.h`:
-  - `FUSION_CONSOLE_SHOW` : print fusion results in terminal
-  - `SIMPLE_FUSION` : parallel computing of simple fusion for comparison with the main algorithm
-  - `SGT_EXPORT_DATA_CSV` : export data (camera detections, lidar detections, fused detections, (FSSIM) real cone coordinates, (SIMPLE_FUSION) simple fusion detections) in map frame into folder `fusion/data/`
+  - `SGT_EXPORT_DATA_CSV` : export data (camera detections, lidar detections, fused detections, (FSSIM) real cone coordinates) in map frame into folder `fusion/data/`
 * `Fusion.h`
-  - `MAX_TRACKED_CONES_SCORE` : maximum value of vitality score for cones in database (see Vitality score diagram)
-  - `MAX_TRACKED_CONES_N` : maximum number of cones in database. In case of fusion node crashing, try to increase the number.
-  - `N_OF_MODELS` : number of regions of measurement models
-  - `CAMERA_X_MIN` : minimum x position coordinate for camera detections
-  - `CAMERA_X_MAX` : maximum x position coordinate for camera detections
-  - `LIDAR_X_MIN` : minimum x position coordinate for lidar detections
-  - `LIDAR_X_MAX` : maximum x position coordinate for lidar detections
+  - `VITALITY_SCORE_INIT` : initial value of vitality score
+  - `VITALITY_SCORE_MAX` : maximum value of vitality score for cones in database (see Vitality score diagram)
   - `VALIDATION_SCORE_TH` : treshold value of validation score for tracked cone publishing
-  - `ACCURACY_CORRECTION` : correction of systematic error in position measurements based on assigned measurement model. 
 
 
 ## Launch
 #### **FSSIM**
-```
+```sh
   $ source ros_implementation/devel/setup.bash
   $ roslaunch fusion fusion_sim.launch
 ```
@@ -68,7 +60,7 @@ Besides `fusion`, following nodes will be launched:
   - `sensors_visualizator` : visualization of detections in RViz
 
 #### **Real sensors on RC car**
-```
+```sh
   $ source ros_implementation/devel/setup.bash
   $ roslaunch fusion fusion_rc.launch
 ```
@@ -85,9 +77,13 @@ Besides `fusion`, following nodes will be launched:
 ### Launch configuration
 * `fusion_rc.yaml`, `fusion_sim.yaml` :
   - `distance_tolerance` : treshold value of distance [m] between two measurement to be associated
-  - `base_frame` : vehicle coordinate frame ID
-  - `camera_frame` : camera detections coordinate frame ID
-  - `lidar_frame` : lidar detections coordinate frame ID
+  - `base/frame_id` : vehicle coordinate frame ID
+  - `camera/frame_id` : camera detections coordinate frame ID
+  - `camera/x_min`: minimum valid x position coordinate for camera detections
+  - `camera/x_max`: maximum valid x position coordinate for camera detections
+  - `lidar/frame_id` : lidar detections coordinate frame ID
+  - `lidar/x_min`: minimum valid x position coordinate for lidar detections
+  - `lidar/x_max`: maximum valid x position coordinate for lidar detections
   - `data_filename` : filename core of exported CSV files
   - `map_frame` : inertial coordinate frame ID
 

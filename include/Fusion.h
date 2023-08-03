@@ -24,136 +24,89 @@
 #include <sgtdv_msgs/ConeStampedArr.h>
 #include <sgtdv_msgs/Point2DStampedArr.h>
 #include <sgtdv_msgs/DebugState.h>
+#include <sgtdv_msgs/CarPose.h>
 #include "../include/Messages.h"
 #include "../../SGT_Macros.h"
+#include "../../SGT_Utils.h"
 #include "../include/FusionKF.h"
 
 
 #define VITALITY_SCORE_INIT 2
-#define VITALITY_SCORE_MAX 4       // maximalna hodnota skore vitality sledovanych kuzelov
-#define MAX_TRACKED_CONES_N 20          // maximalny pocet sledovanych kuzelov
-#define N_OF_MODELS 3                   // pocet regionov modelov merania
-#define CAMERA_X_MIN 1.7
-#define CAMERA_X_MAX 8.0
-#define LIDAR_X_MIN 0.75
-#define LIDAR_X_MAX 8
-#define VALIDATION_SCORE_TH 2           // prahova hodnota validacneho skore pre publikovanie sledovaneho kuzela
-#define ACCURACY_CORRECTION             // ci sa ma robit korekcia presnosti
-
-#ifdef SGT_EXPORT_DATA_CSV
-    #define DATA_SIZE_MAX 300
-#endif
-
-
-
+#define VITALITY_SCORE_MAX 6
+#define VALIDATION_SCORE_TH 2   // validation score treshold
 
 class Fusion
 {
-    public:
-        Fusion(); 
-        ~Fusion();
+	public:
+		Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher); 
+		~Fusion();
 
-        // Setters
-        void SetPublisher(ros::Publisher publisher
-        #ifdef SIMPLE_FUSION
-            , ros::Publisher simpleFusionPub
-        #endif
-        ) { m_publisher = publisher; 
-        #ifdef SIMPLE_FUSION
-            m_simpleFusionPub = simpleFusionPub; 
-        #endif
-        };
-        void SetDistanceTol(float tol) { m_distTH = tol; };
-        void SetMeassurementModels(Eigen::Matrix<double, N_OF_MODELS, 4> cameraModel, Eigen::Matrix<double, N_OF_MODELS, 4> lidarModel)
-        {
-            m_cameraModel = cameraModel;
-            m_lidarModel = lidarModel;
-        };
-        void SetBaseFrameId(std::string baseFrame) { m_baseFrameId = baseFrame; };
-        void SetCameraFrameId(std::string cameraFrame) { m_cameraFrameId = cameraFrame; };
-        void SetLidarFrameId(std::string lidarFrame) { m_lidarFrameId = lidarFrame; };
+		void loadParams(const ros::NodeHandle &handle);
+		
+	#ifdef SGT_EXPORT_DATA_CSV
+		void openDataFiles(void);
+		void writeMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg);
+	#endif
+	#ifdef SGT_DEBUG_STATE
+		void setVisDebugPublisher(ros::Publisher publisher) { vis_debug_publisher_ = publisher; }
+	#endif
 
-    #ifdef SGT_EXPORT_DATA_CSV
-        void OpenDataFile(std::string filename);
-        void SetMapFrameId(std::string mapFrame) { m_mapFrameId = mapFrame; };
-        void WriteMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg);
-    #endif
-    #ifdef SGT_DEBUG_STATE
-        void SetVisDebugPublisher(ros::Publisher publisher) { m_visDebugPublisher = publisher; }
-    #endif
+		void update(const FusionMsg &fusionMsg);
 
-        void Do(const FusionMsg &fusionMsg);
+		void updatePose(const sgtdv_msgs::CarPose::ConstPtr &msg)
+		{
+			KF_obj_.updatePose(msg->position.x, msg->position.y, msg->yaw);
+		};
    
-    private:
-        void GetSensorFrameTF(void);
-        /*float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
-                        const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov);
-                        */
-        /*int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean,const Eigen::Ref<const Eigen::MatrixX2d>&measurementSetCov,
-                        int setSize, const Eigen::Ref<const Eigen::Vector2d> &measurementMean, const Eigen::Ref<const Eigen::Matrix2d> &measurementCov);
-                        */
-        int MinDistIdx(const Eigen::Ref<const Eigen::Matrix2Xd> &measurementSetMean, int setSize, 
-        const Eigen::Ref<const Eigen::Vector2d> &measurementMean);
+	private:
+		struct TrackedCone
+		{
+			TrackedCone(const Eigen::Ref<const Eigen::Vector2d>& coords)
+			: state(Eigen::Vector2d(coords(0), coords(1)))
+			, covariance(Eigen::Matrix2d::Identity())
+			, vitality_score(VITALITY_SCORE_INIT)
+			, validation_score(1)
+			{
+				covariance *= 1e10;
+			};
+			Eigen::Vector2d state;	  // 2D cone coordinates
+			Eigen::Matrix2d covariance;
+			uint8_t color;			  // 'y' - yellow; 'b' - blue; 's' - orange small; 'g' - orange big
+			ros::Time stamp;
+			int vitality_score;		 // Value is incremented after each measurement association, decremented in each update cycle. Cones with score <= 0 are excluded from track list.
+			int validation_score;	   // Value is incremented after each measurement association. Only cones with score > treshold are published.
+		};
 
-        FusionKF m_KF;
-        
-        ros::Publisher m_publisher;
+	private:
+		void getSensorFrameTF(void);
+		/*float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &setMean, const Eigen::Ref<const Eigen::Matrix2d> &setCov,
+						const Eigen::Ref<const Eigen::Vector2d> &obsMean, const Eigen::Ref<const Eigen::Matrix2d> &obsCov);
+						*/
+		bool findClosestTracked(const Eigen::Ref<const Eigen::Vector2d> &measurement, 
+														std::list<TrackedCone>::iterator *closest_it);
+		
+		FusionKF KF_obj_;
+		Params params_;
+		
+		ros::Publisher publisher_;
 
-    #ifdef SIMPLE_FUSION
-        ros::Publisher m_simpleFusionPub;
-    #endif
+		std::list<TrackedCone> tracked_cones_;
+		int num_of_tracked_ = 0;
 
-        float m_distTH;     // distance treshold for data association
+		double camera_frame_tf_x_, lidar_frame_tf_x_;
+		tf::TransformListener listener_;
+		
+	#ifdef SGT_EXPORT_DATA_CSV
+		bool openFile(std::ofstream& file, const std::string& path);
+		void writeToDataFile(int Idx);
+		Eigen::Vector2d transformCoords(const Eigen::Ref<const Eigen::Vector2d> &obs_base_frame, ros::Time stamp) const;
+		Eigen::Vector2d transformCoords(const sgtdv_msgs::Point2DStamped &obs) const;
 
-        Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionCones;    //tracked cones
+		std::vector<std::list<Eigen::Vector2d>> camera_data_, lidar_data_, fusion_data_;
+		std::ofstream camera_data_file_, lidar_data_file_, fusion_data_file_, map_data_file_;
+	#endif /* SGT_EXPORT_DATA_CSV */
 
-    #ifdef SIMPLE_FUSION
-        Eigen::Matrix<double, 2, MAX_TRACKED_CONES_N> m_fusionSimpleCones;
-    #endif
-
-        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, 2> m_fusionConesCov;
-        Eigen::Array<int, 1, MAX_TRACKED_CONES_N> m_vitalityScore;
-        Eigen::Array<int, 1, MAX_TRACKED_CONES_N> m_validationScore;
-        uint8_t m_colors[MAX_TRACKED_CONES_N];
-        ros::Time m_stamps[MAX_TRACKED_CONES_N];
-        int m_numOfCones;
-
-        Eigen::Matrix<double, N_OF_MODELS, 4> m_cameraModel;
-        Eigen::Matrix<double, N_OF_MODELS, 4> m_lidarModel;
-
-        std::string m_baseFrameId;
-        std::string m_cameraFrameId;
-        std::string m_lidarFrameId;
-        tf::StampedTransform m_cameraFrameTF;
-        tf::StampedTransform m_lidarFrameTF;
-        tf::TransformListener m_listener;
-
-    #ifdef SGT_EXPORT_DATA_CSV
-        void WriteToDataFile(int Idx);
-        Eigen::Vector2d TransformCoords(const Eigen::Ref<const Eigen::Vector2d> &obsBaseFrame, ros::Time stamp);
-        Eigen::Vector2d TransformCoords(const sgtdv_msgs::Point2DStamped &obs);
-
-        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_cameraData;
-        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_lidarData;
-        Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_fusionData;
-        Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_cameraDataCount;
-        Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_lidarDataCount;
-        Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_fusionDataCount;
-        std::ofstream m_cameraDataFile;
-        std::ofstream m_lidarDataFile;
-        std::ofstream m_fusionDataFile;
-        std::ofstream m_mapDataFile;
-
-        std::string m_mapFrameId;
-
-        #ifdef SIMPLE_FUSION
-            Eigen::Matrix<double, 2*MAX_TRACKED_CONES_N, DATA_SIZE_MAX> m_simpleFusionData;
-            Eigen::Array<int, MAX_TRACKED_CONES_N, 1> m_simpleFusionDataCount;
-            std::ofstream m_simpleFusionDataFile;
-        #endif // SIMPLE_FUSION
-    #endif //SGT_EXPORT_DATA_CSV
-
-    #ifdef SGT_DEBUG_STATE
-        ros::Publisher m_visDebugPublisher;
-    #endif        
+	#ifdef SGT_DEBUG_STATE
+		ros::Publisher vis_debug_publisher_;
+	#endif		
 };
