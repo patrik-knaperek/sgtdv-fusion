@@ -4,11 +4,10 @@
     <!--<param name="use_sim_time" value="true"/>-->
     
     <rosparam command="load" file="$(find fusion)/params/fusion_rc.yaml"/>
-    <rosparam command="load" file="$(find calibration)/params/sensor_model_3_camera.yaml"/>
-    <rosparam command="load" file="$(find calibration)/params/sensor_model_3_lidar.yaml"/>
-
-    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
-    args="0 0 0 0 0 0 base_link camera_center" />
+    <rosparam command="load" file="$(find calibration)/params/sensor_model_3.yaml"/>
+    
+    <!--<node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
+    args="0 0 0 0 0 0 base_link camera_center" />-->
     
     <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_to_base_link" 
     args="0.319 0 0 0 0 0 base_link lidar" />
@@ -18,5 +17,5 @@
 	<node pkg="fusion" type="fusion" name="fusion" output="screen"/>
     
     <!-- Publish odom transform -->
-    <node pkg="visual_odometry" type="visual_odometry" name="base_link_to_odom" output="screen"/>
+		<!--<node pkg="visual_odometry" type="visual_odometry" name="base_link_to_odom" output="screen"/>-->
 </launch>
