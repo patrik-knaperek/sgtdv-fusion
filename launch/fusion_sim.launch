@@ -7,9 +7,4 @@
     <node pkg="fusion" type="fusion" name="fusion" output="screen"/>
     
     <node pkg="rosservice" type="rosservice" name="set_fusion_log_level" args="call /fusion/set_logger_level 'ros.fusion' 'info'" />
-
-    <!--<node pkg="sensors_visualizator" type="sensors_visualizator" name="sensorsVisualizator" output="screen"/>-->
-    <include file="$(find sensors_visualizator)/launch/sensors_visualizator.launch">
-        <arg name="rviz_config" value="$(find sensors_visualizator)/rviz/sensors_sim_visualizator.rviz"/>
-    </include>
 </launch>
