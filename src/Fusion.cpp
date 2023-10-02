@@ -42,6 +42,7 @@ void Fusion::loadParams(const ros::NodeHandle& handle)
   Utils::loadParam(handle, "/camera/frame_id", &params_.camera_frame_id);
 	Utils::loadParam(handle, "/camera/x_min", &params_.camera_x_min);
 	Utils::loadParam(handle, "/camera/x_max", &params_.camera_x_max);
+	Utils::loadParam(handle, "/camera/bearing_max", &params_.camera_bearing_max);
   Utils::loadParam(handle, "/lidar/frame_id", &params_.lidar_frame_id);
 	Utils::loadParam(handle, "/lidar/x_min", &params_.lidar_x_min);
 	Utils::loadParam(handle, "/lidar/x_max", &params_.lidar_x_max);
@@ -136,6 +137,10 @@ void Fusion::update(const FusionMsg &fusion_msg)
 		/* filter measurement by x axis */
 		if (observation.coords.x < camera_frame_tf_x_ + params_.camera_x_min 
 			|| observation.coords.x > camera_frame_tf_x_ + params_.camera_x_max)
+			continue;
+
+		/* filter by bearing */
+		if (std::abs(std::atan2(observation.coords.y, observation.coords.x)) > params_.camera_bearing_max)
 			continue;
 		
 		/* asign measurement model to measurement */
@@ -283,6 +288,12 @@ void Fusion::update(const FusionMsg &fusion_msg)
 	}
 	
 	ROS_DEBUG_STREAM("number of cones: " << num_of_tracked_);
+
+	/* sort by X axis */
+		tracked_cones_.sort( 
+					[&](TrackedCone &a, TrackedCone &b) {
+						return a.state(0) < b.state(0);
+					});
 	
 	/* publish tracked detections */
 	int i = 0;

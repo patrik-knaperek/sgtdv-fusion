@@ -3,8 +3,9 @@ distance_tolerance: 0.7
 base_frame_id: base_link
 camera:
   frame_id: camera_center
-  x_min: 2.2
+  x_min: 1.8
   x_max: 5.0
+  bearing_max: 0.7
 lidar:
   frame_id: lidar
   x_min: 0.75

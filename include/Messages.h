@@ -26,6 +26,7 @@ struct Params
 	Eigen::Matrix<double, Eigen::Dynamic, 4> lidar_model;
 	double camera_x_min;
 	double camera_x_max;
+	double camera_bearing_max;
 	double lidar_x_min;
 	double lidar_x_max;
 #ifdef SGT_EXPORT_DATA_CSV

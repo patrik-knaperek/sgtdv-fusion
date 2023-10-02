@@ -5,6 +5,7 @@ camera:
   frame_id: gotthard/base_link
   x_min: 2.2
   x_max: 10.0
+  bearing_max: 3.1415
 lidar:
   frame_id: gotthard/base_link
   x_min: 1.5
