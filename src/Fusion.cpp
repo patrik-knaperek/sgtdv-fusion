@@ -140,7 +140,9 @@ void Fusion::update(const FusionMsg &fusion_msg)
 			continue;
 
 		/* filter by bearing */
-		if (std::abs(std::atan2(observation.coords.y, observation.coords.x)) > params_.camera_bearing_max)
+		const auto bearing = std::atan2(observation.coords.y, observation.coords.x);
+		ROS_DEBUG_STREAM("bearing: " << bearing);
+		if (bearing > params_.camera_bearing_max || bearing < params_.camera_bearing_min)
 			continue;
 		
 		/* asign measurement model to measurement */
@@ -197,7 +199,9 @@ void Fusion::update(const FusionMsg &fusion_msg)
 	for (const auto& observation : fusion_msg.lidar_data->points)
 	{
 		/* filter by x axis */
-		if (observation.x < lidar_frame_tf_x_ + params_.lidar_x_min || observation.x > lidar_frame_tf_x_ + params_.lidar_x_max)
+		if (observation.x < lidar_frame_tf_x_ + params_.lidar_x_min 
+			|| observation.x > lidar_frame_tf_x_ + params_.lidar_x_max
+			|| observation.y < params_.lidar_y_min || observation.y > params_.lidar_y_max)
 			continue;
 
 		/* asign measurement model to measurement */

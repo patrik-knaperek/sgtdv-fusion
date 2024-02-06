@@ -15,6 +15,11 @@
     <include file="$(find camera_cone_detection)/launch/camera_cone_detection.launch"/>
 	<include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>
 	<node pkg="fusion" type="fusion" name="fusion" output="screen"/>
+
+    <node pkg="rosservice" 
+    type="rosservice" 
+    name="set_fusion_log_level" 
+    args="call /fusion/set_logger_level 'ros.pathPlanning' 'info'" />
     
     <!-- Publish odom transform -->
 		<!--<node pkg="visual_odometry" type="visual_odometry" name="base_link_to_odom" output="screen"/>-->

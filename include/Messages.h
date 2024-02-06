@@ -24,11 +24,14 @@ struct Params
 	int n_of_models;
 	Eigen::Matrix<double, Eigen::Dynamic, 4> camera_model;
 	Eigen::Matrix<double, Eigen::Dynamic, 4> lidar_model;
-	double camera_x_min;
-	double camera_x_max;
-	double camera_bearing_max;
-	double lidar_x_min;
-	double lidar_x_max;
+	float camera_x_min;
+	float camera_x_max;
+	float camera_bearing_min;
+	float camera_bearing_max;
+	float lidar_x_min;
+	float lidar_x_max;
+	float lidar_y_min;
+	float lidar_y_max;
 #ifdef SGT_EXPORT_DATA_CSV
 	std::string data_filename;
 	std::string map_frame_id;

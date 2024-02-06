@@ -33,7 +33,7 @@
 
 #define VITALITY_SCORE_INIT 2
 #define VITALITY_SCORE_MAX 6
-#define VALIDATION_SCORE_TH 2   // validation score treshold
+#define VALIDATION_SCORE_TH 4   // validation score treshold
 
 class Fusion
 {
