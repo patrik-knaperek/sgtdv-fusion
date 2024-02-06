@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <rosparam command="load" file="$(find fusion)/params/fusion_sim.yaml"/>
-    <rosparam command="load" file="$(find calibration)/params/sensor_model_sim_1.yaml"/>
+    <rosparam command="load" file="$(find fusion)/params/sensor_model_sim_1.yaml"/>
 
     <node pkg="fusion_sim_interface" type="fusion_sim_interface" name="fusionSimInterface" output="screen"/>
     <node pkg="fusion" type="fusion" name="fusion" output="screen"/>

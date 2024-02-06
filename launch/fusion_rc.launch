@@ -4,7 +4,7 @@
     <!--<param name="use_sim_time" value="true"/>-->
     
     <rosparam command="load" file="$(find fusion)/params/fusion_rc.yaml"/>
-    <rosparam command="load" file="$(find calibration)/params/sensor_model_3.yaml"/>
+    <rosparam command="load" file="$(find fusion)/params/sensor_model_3.yaml"/>
     
     <!--<node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
     args="0 0 0 0 0 0 base_link camera_center" />-->
