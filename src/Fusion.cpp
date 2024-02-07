@@ -110,6 +110,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
 {   
 #ifdef SGT_DEBUG_STATE
 	sgtdv_msgs::DebugState state;
+	state.stamp = ros::Time::now();
 	state.workingState = 1;
 	vis_debug_publisher_.publish(state);
 #endif
@@ -319,6 +320,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
 	publisher_.publish(fused_cones);
 
 #ifdef SGT_DEBUG_STATE
+	state.stamp = ros::Time::now();
 	state.workingState = 0;
 	state.numOfCones = static_cast<uint32_t>(num_of_tracked_);
 	vis_debug_publisher_.publish(state);
