@@ -38,15 +38,16 @@ void Fusion::loadParams(const ros::NodeHandle& handle)
 {
   ROS_INFO("LOADING PARAMETERS");
 
-  Utils::loadParam(handle, "/base_frame_id", &params_.base_frame_id);
-  Utils::loadParam(handle, "/camera/frame_id", &params_.camera_frame_id);
+	Utils::loadParam(handle, "/base_frame_id", &params_.base_frame_id);
+  	Utils::loadParam(handle, "/camera/frame_id", &params_.camera_frame_id);
 	Utils::loadParam(handle, "/camera/x_min", &params_.camera_x_min);
 	Utils::loadParam(handle, "/camera/x_max", &params_.camera_x_max);
 	Utils::loadParam(handle, "/camera/bearing_max", &params_.camera_bearing_max);
-  Utils::loadParam(handle, "/lidar/frame_id", &params_.lidar_frame_id);
+	Utils::loadParam(handle, "/camera/bearing_min", &params_.camera_bearing_min);
+  	Utils::loadParam(handle, "/lidar/frame_id", &params_.lidar_frame_id);
 	Utils::loadParam(handle, "/lidar/x_min", &params_.lidar_x_min);
 	Utils::loadParam(handle, "/lidar/x_max", &params_.lidar_x_max);
-  Utils::loadParam(handle, "/distance_tolerance", &params_.dist_th);
+  	Utils::loadParam(handle, "/distance_tolerance", &params_.dist_th);
 	Utils::loadParam(handle,"/number_of_models", &params_.n_of_models);
 	
 	params_.camera_model = Eigen::MatrixXd::Zero(params_.n_of_models, 4);
@@ -141,7 +142,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
 
 		/* filter by bearing */
 		const auto bearing = std::atan2(observation.coords.y, observation.coords.x);
-		ROS_DEBUG_STREAM("bearing: " << bearing);
+		ROS_DEBUG_STREAM("\nbearing: " << bearing << "\ncolor: " << observation.color);
 		if (bearing > params_.camera_bearing_max || bearing < params_.camera_bearing_min)
 			continue;
 		
