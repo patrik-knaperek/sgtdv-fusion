@@ -11,7 +11,7 @@ ___
 ___
 
 ### Related packages
-  * `fusion_sim_interface`
+  * `cone_detection_si`
   * `sensors_visualizator`
   * `calibration`
   * `camera_cone_detection`
@@ -56,8 +56,8 @@ In folder `ros_implementation/src/` run:
   $ roslaunch fusion fusion_sim.launch
 ```
 Besides `fusion`, following nodes will be launched:
-  - `fusion_sim_interface` : translantes cone detection messages from FSSIM into the same types as our cone detection nodes publish (see Data flow diagram)
-  - `sensors_visualizator` : visualization of detections in RViz
+  - `cone_detection_si` : translantes cone detection messages from FSSIM into the same types as our cone detection nodes publish (see Data flow diagram)
+  - `data_visualization` : visualization of detections in RViz
 
 #### **Real sensors on RC car**
 ```sh

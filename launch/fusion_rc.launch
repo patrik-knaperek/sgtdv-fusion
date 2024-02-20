@@ -1,26 +1,26 @@
 <?xml version="1.0"?>
 <launch>
-    <!-- Uncomment if running on rosbag data -->
-    <!--<param name="use_sim_time" value="true"/>-->
-    
-    <rosparam command="load" file="$(find fusion)/params/fusion_rc.yaml"/>
-    <rosparam command="load" file="$(find fusion)/params/sensor_model_3.yaml"/>
-    
-    <!--<node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
-    args="0 0 0 0 0 0 base_link camera_center" />-->
-    
-    <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_to_base_link" 
-    args="0.319 0 0 0 0 0 base_link lidar" />
+  <!-- Uncomment if running on rosbag data -->
+  <!--<param name="use_sim_time" value="true"/>-->
+  
+  <rosparam command="load" file="$(find fusion)/params/fusion_rc.yaml"/>
+  <rosparam command="load" file="$(find fusion)/params/sensor_model_3.yaml"/>
+  
+  <!--<node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
+  args="0 0 0 0 0 0 base_link camera_center" />-->
+  
+  <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_to_base_link" 
+  args="0.319 0 0 0 0 0 base_link lidar" />
 
-    <include file="$(find camera_cone_detection)/launch/camera_cone_detection.launch"/>
-	<include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>
-	<node pkg="fusion" type="fusion" name="fusion" output="screen"/>
+  <include file="$(find camera_cone_detection)/launch/camera_cone_detection.launch"/>
+  <include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>
+  <node pkg="fusion" type="fusion" name="fusion" output="screen"/>
 
-    <node pkg="rosservice" 
-    type="rosservice" 
-    name="set_fusion_log_level" 
-    args="call /fusion/set_logger_level 'ros.pathPlanning' 'info'" />
-    
-    <!-- Publish odom transform -->
-		<!--<node pkg="visual_odometry" type="visual_odometry" name="base_link_to_odom" output="screen"/>-->
+  <node pkg="rosservice" 
+  type="rosservice" 
+  name="set_fusion_log_level" 
+  args="call /fusion/set_logger_level 'ros.fusion' 'info'" />
+  
+  <!-- Publish odom transform -->
+  <!--<node pkg="visual_odometry" type="visual_odometry" name="base_link_to_odom" output="screen"/>-->
 </launch>
