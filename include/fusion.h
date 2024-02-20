@@ -38,7 +38,34 @@
 class Fusion
 {
 public:
-  Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher); 
+  struct Params
+  {
+    std::string base_frame_id;
+    std::string camera_frame_id;
+    std::string lidar_frame_id;
+    float dist_th;
+    int n_of_models;
+    Eigen::Matrix<double, Eigen::Dynamic, 4> camera_model;
+    Eigen::Matrix<double, Eigen::Dynamic, 4> lidar_model;
+    float camera_x_min;
+    float camera_x_max;
+    float camera_bearing_min;
+    float camera_bearing_max;
+    float lidar_x_min;
+    float lidar_x_max;
+    float lidar_y_min;
+    float lidar_y_max;
+  #ifdef SGT_EXPORT_DATA_CSV
+    std::string data_filename;
+    std::string map_frame_id;
+  #endif
+  };
+public:
+  Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher
+  #ifdef SGT_DEBUG_STATE
+  , const ros::Publisher& vis_debug_pub
+  #endif /* SGT_DEBUG_STATE */
+  ); 
   ~Fusion();
 
   void loadParams(const ros::NodeHandle &handle);
@@ -46,9 +73,6 @@ public:
 #ifdef SGT_EXPORT_DATA_CSV
   void openDataFiles(void);
   void writeMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg);
-#endif
-#ifdef SGT_DEBUG_STATE
-  void setVisDebugPublisher(ros::Publisher publisher) { vis_debug_publisher_ = publisher; }
 #endif
 
   void update(const FusionMsg &fusion_msg);

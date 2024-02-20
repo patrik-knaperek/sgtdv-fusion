@@ -6,8 +6,19 @@
 
 #include "../include/fusion_synch.h"
 
-FusionSynch::FusionSynch(const ros::NodeHandle& handle, const ros::Publisher& publisher) :
-  fusion_obj_(handle, publisher)
+FusionSynch::FusionSynch(ros::NodeHandle& handle) :
+  /* ROS interface init */
+  fusion_obj_(handle, handle.advertise<sgtdv_msgs::ConeStampedArr>("fusion_cones", 1)
+#ifdef SGT_DEBUG_STATE
+  , handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 2)
+#endif /* SGT_DEBUG_STATE */
+  ),
+#ifdef SGT_EXPORT_DATA_CSV
+  map_marker_sub_(handle.subscribe("fssim/track/markers", 1, &FusionSynch::mapCallback, this)),
+#endif /* SGT_EXPORT_DATA_CSV */ 
+  lidar_sub_(handle.subscribe("lidar_cones", 1, &FusionSynch::lidarCallback, this)),
+  camera_sub_(handle.subscribe("camera_cones", 1, &FusionSynch::cameraCallback, this)),
+  pose_sub_(handle.subscribe("pose_estimate", 1, &FusionSynch::poseCallback, this))
 {
   Utils::loadParam(handle, "/base_frame_id", &base_frame_id_);
 }

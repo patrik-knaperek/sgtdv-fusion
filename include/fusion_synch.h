@@ -11,14 +11,11 @@
 class FusionSynch
 {
 public:
-  FusionSynch(const ros::NodeHandle& handle, const ros::Publisher& publisher);
+  FusionSynch(ros::NodeHandle& handle);
   ~FusionSynch() = default;
 
 #ifdef SGT_EXPORT_DATA_CSV
   void mapCallback(const visualization_msgs::MarkerArray::ConstPtr &msg) { fusion_obj_.writeMapToFile(msg); };
-#endif
-#ifdef SGT_DEBUG_STATE
-  void setVisDebugPublisher(ros::Publisher publisher) { fusion_obj_.setVisDebugPublisher(publisher); }
 #endif
 
   void cameraCallback(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg);
@@ -28,6 +25,13 @@ public:
 
 private:
   Fusion fusion_obj_;
+  ros::Subscriber lidar_sub_;
+  ros::Subscriber camera_sub_;
+  ros::Subscriber pose_sub_;
+#ifdef SGT_EXPORT_DATA_CSV
+  ros::Subscriber map_marker_sub_;
+#endif /* SGT_EXPORT_DATA_CSV */
+
   bool camera_ready_ = false; 
   bool lidar_ready_ = false;
   FusionMsg fusion_msg_;

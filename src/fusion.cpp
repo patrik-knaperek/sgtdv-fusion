@@ -5,8 +5,15 @@
 
 #include "../include/fusion.h"
 
-Fusion::Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher) :
+Fusion::Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher
+#ifdef SGT_DEBUG_STATE
+  , const ros::Publisher& vis_debug_pub
+#endif /* SGT_DEBUG_STATE */
+  ) :
   publisher_(publisher)
+#ifdef SGT_DEBUG_STATE
+  , vis_debug_publisher_(vis_debug_pub)
+#endif
 {
   loadParams(handle);
   getSensorFrameTF();
@@ -36,7 +43,7 @@ Fusion::~Fusion()
 
 void Fusion::loadParams(const ros::NodeHandle& handle)
 {
-  ROS_INFO("LOADING PARAMETERS");
+  ROS_DEBUG("LOADING PARAMETERS");
 
   Utils::loadParam(handle, "/base_frame_id", &params_.base_frame_id);
   Utils::loadParam(handle, "/camera/frame_id", &params_.camera_frame_id);
