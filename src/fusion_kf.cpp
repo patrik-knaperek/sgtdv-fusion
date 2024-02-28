@@ -1,18 +1,16 @@
 /*****************************************************/
 /* Organization: Stuba Green Team
-/* Authors: Juraj Krasňanský, Patrik Knaperek
+/* Authors: Patrik Knaperek
 /*****************************************************/
 
 #include "../include/fusion_kf.h"
 
-FusionKF::FusionKF()
+FusionKF::FusionKF() :
+  H_(Eigen::Matrix2d::Identity()),
+  A_(Eigen::Matrix2d::Identity())
 {
-  H_ = Eigen::Matrix2d::Identity();
-
   Q_ << 1e-06, 0.,
         0., 1e-06;
-
-  A_ = Eigen::Matrix2d::Identity();
 }
 
 /**
@@ -23,8 +21,8 @@ FusionKF::FusionKF()
  */
 void FusionKF::predict(Eigen::Ref<Eigen::Vector2d> tracked_cone_state, Eigen::Ref<Eigen::Matrix2d> tracked_cone_cov)
 {	
-	tracked_cone_state = rot2_.matrix().transpose() * rot1_.matrix() * tracked_cone_state 
-										  - rot2_.matrix().transpose() * (pos2_ - pos1_);
+	tracked_cone_state = rot_act_.matrix().transpose() * rot_prev_.matrix() * tracked_cone_state 
+										  - rot_act_.matrix().transpose() * (pos_act_ - pos_prev_);
 	tracked_cone_cov = A_ * tracked_cone_cov * A_.transpose() + Q_;
 }
 
@@ -45,6 +43,7 @@ void FusionKF::update(Eigen::Ref<Eigen::Vector2d> tracked_cone_state, Eigen::Ref
   ROS_DEBUG_STREAM("state before:\n" << tracked_cone_state);
   ROS_DEBUG_STREAM("covariance before:\n" << tracked_cone_cov);
 
+  /* compute Kalman gain */
   Eigen::Matrix2d S = H_ * tracked_cone_cov * H_.transpose() + measurement_model;
   Eigen::Matrix2d K = tracked_cone_cov * H_.transpose() * S.inverse();
 
@@ -59,6 +58,10 @@ void FusionKF::update(Eigen::Ref<Eigen::Vector2d> tracked_cone_state, Eigen::Ref
   ROS_DEBUG_STREAM("covariance after:\n" << tracked_cone_cov);
 }
 
+/// @brief Store latest pose data from topic message
+/// @param x position coordinate
+/// @param y position coordinate
+/// @param theta (z-axis) rotation
 void FusionKF::updatePose(const double x, const double y, const double theta)
 {
   act_pose_.x = x;
@@ -66,13 +69,14 @@ void FusionKF::updatePose(const double x, const double y, const double theta)
   act_pose_.theta = theta;
 }
 
-void FusionKF::updateTimeAndPoseDelta()
+/// @brief Update variables for differential prediction motion model
+void FusionKF::updatePoseDelta()
 {
-  pos1_ = pos2_;
-  rot1_ = rot2_;
-  pos2_ << act_pose_.x, act_pose_.y;
-  rot2_ = Eigen::Rotation2Dd(act_pose_.theta);
+  pos_prev_ = pos_act_;
+  rot_prev_ = rot_act_;
+  pos_act_ << act_pose_.x, act_pose_.y;
+  rot_act_ = Eigen::Rotation2Dd(act_pose_.theta);
 
-  ROS_DEBUG_STREAM("\npos1:\n" << pos1_ << "\npos2:\n" << pos2_);
-  ROS_DEBUG_STREAM("\nrot1:\n" << rot1_.matrix() << "\nrot2:\n" << rot2_.matrix());
+  ROS_DEBUG_STREAM("\npos1:\n" << pos_prev_ << "\npos2:\n" << pos_act_);
+  ROS_DEBUG_STREAM("\nrot1:\n" << rot_prev_.matrix() << "\nrot2:\n" << rot_act_.matrix());
 }

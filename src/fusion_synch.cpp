@@ -45,7 +45,6 @@ void FusionSynch::cameraCallback(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg
     coords_msg_frame.header = cone_it.coords.header;
     coords_msg_frame.point.x = cone_it.coords.x;
     coords_msg_frame.point.y = cone_it.coords.y;
-    coords_msg_frame.point.z = 0;
 
     if(coords_msg_frame.header.frame_id != base_frame_id_)
       coords_base_frame = transformCoords(coords_msg_frame);
@@ -101,7 +100,6 @@ void FusionSynch::lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &m
     coords_msg_frame.header = point_it.header;
     coords_msg_frame.point.x = point_it.x;
     coords_msg_frame.point.y = point_it.y;
-    coords_msg_frame.point.z = 0;
 
     if(coords_msg_frame.header.frame_id != base_frame_id_)
       coords_base_frame = transformCoords(coords_msg_frame);

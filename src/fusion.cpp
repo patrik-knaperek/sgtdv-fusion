@@ -123,7 +123,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
 	
   /* KF prediction step for all tracked cones */
   ROS_DEBUG("KF Predict");
-  KF_obj_.updateTimeAndPoseDelta();
+  KF_obj_.updatePoseDelta();
   if(num_of_tracked_ > 0)
   {
     for(auto& cone : tracked_cones_)
@@ -166,10 +166,10 @@ void Fusion::update(const FusionMsg &fusion_msg)
       }
     }
     
-    /* associate and ekf-update with tracked detections */
+    /* associate and KF-update with tracked detections */
     if(findClosestTracked(camera_obs_act, &associate_it))
     {
-      /* run ekf-update with new detection */
+      /* run KF-update with new detection */
       ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
       KF_obj_.update(associate_it->state, associate_it->covariance, camera_obs_act, camera_cov_act);
       associate_it->vitality_score += (associate_it->vitality_score >= VITALITY_SCORE_MAX) ? 0 : 1;
@@ -226,7 +226,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
       }
     }
     
-    /* associate and ekf-update with tracked detection */
+    /* associate and KF-update with tracked detection */
     if(findClosestTracked(lidar_obs_act, &associate_it))
     {
       ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
@@ -453,7 +453,6 @@ Eigen::Vector2d Fusion::transformCoords(const Eigen::Ref<const Eigen::Vector2d> 
   coords_child_frame.header.stamp = stamp;
   coords_child_frame.point.x = obs_base_frame(0);
   coords_child_frame.point.y = obs_base_frame(1);
-  coords_child_frame.point.z = 0.0;
 
   geometry_msgs::PointStamped coords_parent_frame;
   try

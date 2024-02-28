@@ -6,13 +6,10 @@
   <rosparam command="load" file="$(find fusion)/params/fusion_rc.yaml"/>
   <rosparam command="load" file="$(find fusion)/params/sensor_model_3.yaml"/>
   
-  <!--<node pkg="tf2_ros" type="static_transform_publisher" name="camera_center_to_base_link" 
-  args="0 0 0 0 0 0 base_link camera_center" />-->
-  
   <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_to_base_link" 
   args="0.319 0 0 0 0 0 base_link lidar" />
 
-  <include file="$(find camera_cone_detection)/launch/camera_cone_detection.launch"/>
+  <include file="$(find camera_driver)/launch/camera_driver.launch"/>
   <include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>
   <node pkg="fusion" type="fusion" name="fusion" output="screen"/>
 

@@ -21,15 +21,15 @@ public:
               const Eigen::Ref<const Eigen::Matrix2d> &measurement_model) const;
 
   void updatePose(const double x, const double y, const double theta);
-  void updateTimeAndPoseDelta();
+  void updatePoseDelta();
 
 private:
-  Eigen::Matrix2d A_;
-  Eigen::Matrix2d H_;
-  Eigen::Matrix2d Q_;
+  Eigen::Matrix2d A_; // motion model matrix
+  Eigen::Matrix2d H_; // observation model matrix
+  Eigen::Matrix2d Q_; // noise covariance matrix
 
   geometry_msgs::Pose2D act_pose_;
-  Eigen::Vector2d pos1_, pos2_;
-  Eigen::Rotation2Dd rot1_, rot2_;
+  Eigen::Vector2d pos_prev_, pos_act_;
+  Eigen::Rotation2Dd rot_prev_, rot_act_;
 };
 
