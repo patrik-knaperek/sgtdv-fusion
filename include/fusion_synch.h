@@ -6,7 +6,7 @@
 #pragma once
 
 #include <tf/transform_listener.h>
-#include "../include/fusion.h"
+#include "fusion.h"
 
 class FusionSynch
 {

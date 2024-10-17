@@ -3,7 +3,18 @@
 /* Authors: Patrik Knaperek
 /*****************************************************/
 
-#include "../include/fusion.h"
+/* C++ */
+#include <fstream>
+
+/* ROS */
+#include <ros/package.h>
+#include <geometry_msgs/PointStamped.h>
+
+/* SGT */
+#include <sgtdv_msgs/DebugState.h>
+
+/* Header */
+#include "fusion.h"
 
 Fusion::Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher
 #ifdef SGT_DEBUG_STATE

@@ -3,8 +3,12 @@
 /* Authors: Juraj Krasňanský, Patrik Knaperek
 /*****************************************************/
 
+/* SGT */
+#include <sgtdv_msgs/DebugState.h>
+#include "SGT_Utils.h"
 
-#include "../include/fusion_synch.h"
+/* Header */
+#include "fusion_synch.h"
 
 FusionSynch::FusionSynch(ros::NodeHandle& handle) :
   /* ROS interface init */

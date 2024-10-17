@@ -3,7 +3,11 @@
 /* Authors: Patrik Knaperek
 /*****************************************************/
 
-#include "../include/fusion_kf.h"
+/* ROS */
+#include <ros/ros.h>
+
+/* Header */
+#include "fusion_kf.h"
 
 FusionKF::FusionKF() :
   H_(Eigen::Matrix2d::Identity()),

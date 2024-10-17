@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <ros/ros.h>
 #include <geometry_msgs/Pose2D.h>
 #include <Eigen/Eigen>
 

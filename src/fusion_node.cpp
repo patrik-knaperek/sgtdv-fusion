@@ -3,7 +3,7 @@
 /* Authors: Juraj Krasňanský, Patrik Knaperek
 /*****************************************************/
 
-#include "../include/fusion_synch.h"
+#include "fusion_synch.h"
 
 int main(int argc, char** argv)
 {

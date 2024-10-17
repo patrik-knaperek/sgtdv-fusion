@@ -23,8 +23,9 @@ catkin_package(
 ###########
 
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
+  ${CMAKE_SOURCE_DIR}/../
 )
 
 add_executable(${PROJECT_NAME} src/fusion.cpp src/fusion_node.cpp src/fusion_synch.cpp src/fusion_kf.cpp)

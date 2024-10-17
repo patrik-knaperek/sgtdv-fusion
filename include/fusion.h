@@ -6,29 +6,20 @@
 #pragma once
 
 /* C++ */
-#include <iostream>
 #include <fstream>
-#include <string>
-#include <cmath>
-#include <array>
 #include <Eigen/Eigen>
 
 /* ROS */
 #include <ros/ros.h>
-#include <ros/package.h>
-#include <geometry_msgs/PointStamped.h>
 #include <tf/transform_listener.h>
 #include <visualization_msgs/MarkerArray.h>
 
 /* SGT */
-#include <sgtdv_msgs/ConeStampedArr.h>
-#include <sgtdv_msgs/Point2DStampedArr.h>
-#include <sgtdv_msgs/DebugState.h>
 #include <sgtdv_msgs/CarPose.h>
-#include "../include/messages.h"
-#include "../../SGT_Macros.h"
-#include "../../SGT_Utils.h"
-#include "../include/fusion_kf.h"
+#include "messages.h"
+#include "SGT_Macros.h"
+#include "SGT_Utils.h"
+#include "fusion_kf.h"
 
 
 #define VITALITY_SCORE_INIT 2
