@@ -1,18 +1,29 @@
-distance_tolerance: 1.5
+distance_tolerance: 0.8
 
 base_frame_id: gotthard/base_link
+vitality_score:
+  init: 2
+  max: 6
+validation_score_treshold: 4
+
 camera:
   frame_id: fssim/vehicle/camera_center_link
-  x_min: 1.7
-  x_max: 10.0
-  bearing_min: -0.7
-  bearing_max: 0.7
+  fov:
+    x:
+      min: 1.7
+      max: 10.0
+    bearing:
+      min: -0.7
+      max: 0.7
 lidar:
   frame_id: fssim/vehicle/front_center_lidar_link
-  x_min: 0.78
-  x_max: 8.0
-  y_min: -5.0
-  y_max: 5.0
+  fov:
+    x:
+      min: 0.78
+      max: 8.0
+    y:
+      min: -5.0
+      max: 5.0
 
 # data export
 data_filename: fusion_data_sim

@@ -58,15 +58,18 @@ void Fusion::loadParams(const ros::NodeHandle& handle)
 
   Utils::loadParam(handle, "/base_frame_id", &params_.base_frame_id);
   Utils::loadParam(handle, "/camera/frame_id", &params_.camera_frame_id);
-  Utils::loadParam(handle, "/camera/x_min", &params_.camera_x_min);
-  Utils::loadParam(handle, "/camera/x_max", &params_.camera_x_max);
-  Utils::loadParam(handle, "/camera/bearing_max", &params_.camera_bearing_max);
-  Utils::loadParam(handle, "/camera/bearing_min", &params_.camera_bearing_min);
+  Utils::loadParam(handle, "/camera/fov/x/min", &params_.camera_x.min);
+  Utils::loadParam(handle, "/camera/fov/x/max", &params_.camera_x.max);
+  Utils::loadParam(handle, "/camera/fov/bearing/max", &params_.camera_bearing.max);
+  Utils::loadParam(handle, "/camera/fov/bearing/min", &params_.camera_bearing.min);
   Utils::loadParam(handle, "/lidar/frame_id", &params_.lidar_frame_id);
-  Utils::loadParam(handle, "/lidar/x_min", &params_.lidar_x_min);
-  Utils::loadParam(handle, "/lidar/x_max", &params_.lidar_x_max);
+  Utils::loadParam(handle, "/lidar/fov/x/min", &params_.lidar_x.min);
+  Utils::loadParam(handle, "/lidar/fov/x/max", &params_.lidar_x.max);
   Utils::loadParam(handle, "/distance_tolerance", &params_.dist_th);
   Utils::loadParam(handle,"/number_of_models", &params_.n_of_models);
+  Utils::loadParam(handle, "/vitality_score/init", &params_.vitality_score_init);
+  Utils::loadParam(handle, "/vitality_score/max", &params_.vitality_score_max);
+  Utils::loadParam(handle, "/validation_score_treshold", &params_.validation_score_th);
 
   params_.camera_model = Eigen::MatrixXd::Zero(params_.n_of_models, 4);
   params_.camera_model.block(0,0,params_.n_of_models,2) 
@@ -154,21 +157,22 @@ void Fusion::update(const FusionMsg &fusion_msg)
   {
     ROS_DEBUG_STREAM("coords: " << observation.coords);
     /* filter measurement by x axis */
-    if(observation.coords.x < camera_frame_tf_x_ + params_.camera_x_min 
-      || observation.coords.x > camera_frame_tf_x_ + params_.camera_x_max)
+    if(observation.coords.x < camera_frame_tf_x_ + params_.camera_x.min 
+      || observation.coords.x > camera_frame_tf_x_ + params_.camera_x.max)
       continue;
 
     /* filter by bearing */
     const auto bearing = std::atan2(observation.coords.y, observation.coords.x);
     ROS_DEBUG_STREAM("\nbearing: " << bearing << "\ncolor: " << observation.color);
-    if(bearing > params_.camera_bearing_max || bearing < params_.camera_bearing_min)
+    if(bearing > params_.camera_bearing.max || bearing < params_.camera_bearing.min)
       continue;
     
     /* asign measurement model to measurement */
     for(int model = 0; model < params_.n_of_models; model++)
     {
       if(observation.coords.x < 
-        (params_.camera_x_max - params_.camera_x_min) / params_.n_of_models * (model+1) + camera_frame_tf_x_ + params_.camera_x_min)
+        (params_.camera_x.max - params_.camera_x.min) / params_.n_of_models * (model+1) 
+        + camera_frame_tf_x_ + params_.camera_x.min)
       {
         camera_obs_act << observation.coords.x, observation.coords.y;
         camera_obs_act += params_.camera_model.block(model,0,1,2).transpose();
@@ -183,14 +187,14 @@ void Fusion::update(const FusionMsg &fusion_msg)
       /* run KF-update with new detection */
       ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
       KF_obj_.update(associate_it->state, associate_it->covariance, camera_obs_act, camera_cov_act);
-      associate_it->vitality_score += (associate_it->vitality_score >= VITALITY_SCORE_MAX) ? 0 : 1;
-      associate_it->validation_score += (associate_it->validation_score > VALIDATION_SCORE_TH) ? 0 : 1;
+      associate_it->vitality_score += (associate_it->vitality_score >= params_.vitality_score_max) ? 0 : 1;
+      associate_it->validation_score += (associate_it->validation_score > params_.validation_score_th) ? 0 : 1;
     }
     else
     {
       /* add to tracked detections */
       ROS_DEBUG("Adding new tracked cone");
-      tracked_cones_.emplace_back(TrackedCone(camera_obs_act));
+      tracked_cones_.emplace_back(TrackedCone(camera_obs_act, params_.vitality_score_init));
       associate_it = --tracked_cones_.end();
     
     #ifdef SGT_EXPORT_DATA_CSV
@@ -218,16 +222,17 @@ void Fusion::update(const FusionMsg &fusion_msg)
   for(const auto& observation : fusion_msg.lidar_data->points)
   {
     /* filter by x axis */
-    if(observation.x < lidar_frame_tf_x_ + params_.lidar_x_min 
-      || observation.x > lidar_frame_tf_x_ + params_.lidar_x_max
-      || observation.y < params_.lidar_y_min || observation.y > params_.lidar_y_max)
+    if(observation.x < lidar_frame_tf_x_ + params_.lidar_x.min 
+      || observation.x > lidar_frame_tf_x_ + params_.lidar_x.max
+      || observation.y < params_.lidar_y.min || observation.y > params_.lidar_y.max)
       continue;
 
     /* asign measurement model to measurement */
     for(int model = 0; model < params_.n_of_models; model++)
     {
       if(observation.x < 
-        (params_.lidar_x_max - params_.lidar_x_min) / params_.n_of_models * (model+1) + params_.lidar_x_min + lidar_frame_tf_x_)
+        (params_.lidar_x.max - params_.lidar_x.min) / params_.n_of_models * (model+1) 
+        + params_.lidar_x.min + lidar_frame_tf_x_)
       {
         lidar_obs_act << observation.x, observation.y;
         lidar_obs_act += params_.lidar_model.block(model,0,1,2).transpose();
@@ -242,9 +247,9 @@ void Fusion::update(const FusionMsg &fusion_msg)
     {
       ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
       KF_obj_.update(associate_it->state, associate_it->covariance, lidar_obs_act, lidar_cov_act);
-      associate_it->vitality_score += (associate_it->vitality_score >= VITALITY_SCORE_MAX) ? 0 : 1;
+      associate_it->vitality_score += (associate_it->vitality_score >= params_.vitality_score_max) ? 0 : 1;
       associate_it->validation_score += 
-        (associate_it->validation_score > VALIDATION_SCORE_TH) ? 0 : VALIDATION_SCORE_TH;
+        (associate_it->validation_score > params_.validation_score_th) ? 0 : params_.validation_score_th;
       associate_it->stamp = observation.header.stamp;
 
     #ifdef SGT_EXPORT_DATA_CSV
@@ -265,7 +270,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
   {
     ROS_DEBUG_STREAM("\n" << cone_it->state);
     if(!(cone_it->vitality_score > 0)
-      || cone_it->state(0) < camera_frame_tf_x_ + params_.camera_x_min + params_.camera_model(0,0))
+      || cone_it->state(0) < camera_frame_tf_x_ + params_.camera_x.min + params_.camera_model(0,0))
       {
         auto coneItTemp = cone_it--;
         tracked_cones_.erase(coneItTemp);
@@ -287,7 +292,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
     {
     #ifdef SGT_EXPORT_DATA_CSV
       Eigen::Vector2d fusion_obs_map = transformCoords(cone_it->state.head<2>(), cone_it->stamp);
-      if(fusion_obs_map != Eigen::Vector2d::Zero() && cone_it->validation_score > VALIDATION_SCORE_TH)
+      if(fusion_obs_map != Eigen::Vector2d::Zero() && cone_it->validation_score > params_.validation_score_th)
       {
         fusion_data_.at(std::distance(tracked_cones_.begin(), cone_it)).push_back(fusion_obs_map);
       }
@@ -322,7 +327,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
   int i = 0;
   for(const auto& tracked : tracked_cones_)
   {
-    if(tracked.validation_score > VALIDATION_SCORE_TH)
+    if(tracked.validation_score > params_.validation_score_th)
     {
       cone.coords.header.frame_id = params_.base_frame_id;
       cone.coords.header.seq = i++;

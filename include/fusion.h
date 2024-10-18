@@ -21,36 +21,8 @@
 #include "SGT_Utils.h"
 #include "fusion_kf.h"
 
-
-#define VITALITY_SCORE_INIT 2
-#define VITALITY_SCORE_MAX 6
-#define VALIDATION_SCORE_TH 4
-
 class Fusion
 {
-public:
-  struct Params
-  {
-    std::string base_frame_id;
-    std::string camera_frame_id;
-    std::string lidar_frame_id;
-    float dist_th;
-    int n_of_models;
-    Eigen::Matrix<double, Eigen::Dynamic, 4> camera_model;
-    Eigen::Matrix<double, Eigen::Dynamic, 4> lidar_model;
-    float camera_x_min;
-    float camera_x_max;
-    float camera_bearing_min;
-    float camera_bearing_max;
-    float lidar_x_min;
-    float lidar_x_max;
-    float lidar_y_min;
-    float lidar_y_max;
-  #ifdef SGT_EXPORT_DATA_CSV
-    std::string data_filename;
-    std::string map_frame_id;
-  #endif
-  };
 public:
   Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher
   #ifdef SGT_DEBUG_STATE
@@ -58,8 +30,6 @@ public:
   #endif /* SGT_DEBUG_STATE */
   ); 
   ~Fusion();
-
-  void loadParams(const ros::NodeHandle &handle);
   
 #ifdef SGT_EXPORT_DATA_CSV
   void openDataFiles(void);
@@ -74,12 +44,34 @@ public:
   };
   
 private:
+  struct Params
+  {
+    std::string base_frame_id;
+    std::string camera_frame_id;
+    std::string lidar_frame_id;
+    float dist_th;
+    int n_of_models;
+    Eigen::Matrix<double, Eigen::Dynamic, 4> camera_model;
+    Eigen::Matrix<double, Eigen::Dynamic, 4> lidar_model;
+    Utils::Range<float> camera_x;
+    Utils::Range<float> camera_bearing;
+    Utils::Range<float> lidar_x;
+    Utils::Range<float> lidar_y;
+    int vitality_score_init;
+    int vitality_score_max;
+    int validation_score_th;
+  #ifdef SGT_EXPORT_DATA_CSV
+    std::string data_filename;
+    std::string map_frame_id;
+  #endif
+  };
+
   struct TrackedCone
   {
-    TrackedCone(const Eigen::Ref<const Eigen::Vector2d>& coords) :
+    TrackedCone(const Eigen::Ref<const Eigen::Vector2d>& coords, const int vitality_init) :
       state(Eigen::Vector2d(coords(0), coords(1))),
       covariance(Eigen::Matrix2d::Identity()),
-      vitality_score(VITALITY_SCORE_INIT),
+      vitality_score(vitality_init),
       validation_score(1)
     {
       covariance *= 1e10;
@@ -100,6 +92,7 @@ private:
           */
   bool findClosestTracked(const Eigen::Ref<const Eigen::Vector2d> &measurement, 
                           std::list<TrackedCone>::iterator *closest_it);
+  void loadParams(const ros::NodeHandle &handle);
   
   FusionKF KF_obj_;
   Params params_;
