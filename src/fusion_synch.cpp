@@ -5,6 +5,7 @@
 
 /* SGT */
 #include <sgtdv_msgs/DebugState.h>
+#include <sgtdv_msgs/ConeWithCovStampedArr.h>
 #include "SGT_Utils.h"
 
 /* Header */
@@ -12,7 +13,7 @@
 
 FusionSynch::FusionSynch(ros::NodeHandle& handle) :
   /* ROS interface init */
-  fusion_obj_(handle, handle.advertise<sgtdv_msgs::ConeStampedArr>("fusion_cones", 1)
+  fusion_obj_(handle, handle.advertise<sgtdv_msgs::ConeWithCovStampedArr>("fusion_cones", 1)
 #ifdef SGT_DEBUG_STATE
   , handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 2)
 #endif /* SGT_DEBUG_STATE */

@@ -12,6 +12,7 @@
 
 /* SGT */
 #include <sgtdv_msgs/DebugState.h>
+#include <sgtdv_msgs/ConeWithCovStampedArr.h>
 
 /* Header */
 #include "fusion.h"
@@ -71,17 +72,17 @@ void Fusion::loadParams(const ros::NodeHandle& handle)
   Utils::loadParam(handle, "/vitality_score/max", &params_.vitality_score_max);
   Utils::loadParam(handle, "/validation_score_treshold", &params_.validation_score_th);
 
-  params_.camera_model = Eigen::MatrixXd::Zero(params_.n_of_models, 4);
+  params_.camera_model = Eigen::MatrixXd::Zero(params_.n_of_models, 5);
   params_.camera_model.block(0,0,params_.n_of_models,2) 
     = Utils::loadArray(handle, std::string("/camera/offset"), params_.n_of_models, 2);
   params_.camera_model.block(0,2,params_.n_of_models,2) 
-    = Utils::loadArray(handle, std::string("/camera/covariance"), params_.n_of_models, 2);
+    = Utils::loadArray(handle, std::string("/camera/covariance"), params_.n_of_models, 3);
 
-  params_.lidar_model = Eigen::MatrixXd::Zero(params_.n_of_models, 4);
+  params_.lidar_model = Eigen::MatrixXd::Zero(params_.n_of_models, 5);
   params_.lidar_model.block(0,0,params_.n_of_models,2) 
     = Utils::loadArray(handle, std::string("/lidar/offset"), params_.n_of_models, 2);
   params_.lidar_model.block(0,2,params_.n_of_models,2) 
-    = Utils::loadArray(handle, std::string("/lidar/covariance"), params_.n_of_models, 2);
+    = Utils::loadArray(handle, std::string("/lidar/covariance"), params_.n_of_models, 3);
 
 #ifdef SGT_EXPORT_DATA_CSV
   Utils::loadParam(handle, "/data_filename", &params_.data_filename);
@@ -176,7 +177,8 @@ void Fusion::update(const FusionMsg &fusion_msg)
       {
         camera_obs_act << observation.coords.x, observation.coords.y;
         camera_obs_act += params_.camera_model.block(model,0,1,2).transpose();
-        camera_cov_act << params_.camera_model(model,2), 0, 0, params_.camera_model(model,3);
+        camera_cov_act << params_.camera_model(model,2), params_.camera_model(model,4), 
+                          params_.camera_model(model,4), params_.camera_model(model,3);
         break;
       }
     }
@@ -236,8 +238,8 @@ void Fusion::update(const FusionMsg &fusion_msg)
       {
         lidar_obs_act << observation.x, observation.y;
         lidar_obs_act += params_.lidar_model.block(model,0,1,2).transpose();
-        lidar_cov_act << params_.lidar_model(model,2), 0,
-                          0, params_.lidar_model(model,3);
+        lidar_cov_act << params_.lidar_model(model,2), params_.lidar_model(model,4),
+                         params_.lidar_model(model,4), params_.lidar_model(model,3);
         break;
       }
     }
@@ -303,8 +305,8 @@ void Fusion::update(const FusionMsg &fusion_msg)
   num_of_tracked_ = tracked_cones_.size();
 
   /* create and publish Fusion message */
-  sgtdv_msgs::ConeStampedArr fused_cones;
-  static sgtdv_msgs::ConeStamped cone;
+  sgtdv_msgs::ConeWithCovStampedArr fused_cones;
+  static sgtdv_msgs::ConeWithCovStamped cone;
 
   try
   {
@@ -334,6 +336,7 @@ void Fusion::update(const FusionMsg &fusion_msg)
       cone.coords.header.stamp = tracked.stamp;
       cone.coords.x = tracked.state(0);
       cone.coords.y = tracked.state(1);
+      cone.covariance = {tracked.covariance(0,0), tracked.covariance(0,1), tracked.covariance(1,0), tracked.covariance(1,1)};
       cone.color = tracked.color;
 
       fused_cones.cones.push_back(cone);
