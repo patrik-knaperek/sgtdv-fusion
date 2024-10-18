@@ -11,10 +11,11 @@
 class FusionSynch
 {
 public:
-  FusionSynch(ros::NodeHandle& handle);
+  explicit FusionSynch(ros::NodeHandle& handle);
   ~FusionSynch() = default;
 
-#ifdef SGT_EXPORT_DATA_CSV
+private:
+  #ifdef SGT_EXPORT_DATA_CSV
   void mapCallback(const visualization_msgs::MarkerArray::ConstPtr &msg) { fusion_obj_.writeMapToFile(msg); };
 #endif
 
@@ -22,8 +23,7 @@ public:
   void lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg);
   void poseCallback(const sgtdv_msgs::CarPose::ConstPtr &msg);
   geometry_msgs::PointStamped transformCoords(const geometry_msgs::PointStamped& coords_child_frame) const;
-
-private:
+  
   Fusion fusion_obj_;
   ros::Subscriber lidar_sub_;
   ros::Subscriber camera_sub_;
