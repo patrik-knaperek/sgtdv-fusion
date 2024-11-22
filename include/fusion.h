@@ -16,8 +16,9 @@
 
 /* SGT */
 #include <sgtdv_msgs/CarPose.h>
+#include <sgtdv_msgs/ConeStampedArr.h>
+#include <sgtdv_msgs/Point2DStampedArr.h>
 #include <sgtdv_msgs/ConeWithCovStampedArr.h>
-#include "messages.h"
 #include "SGT_Macros.h"
 #include "SGT_Utils.h"
 #include "fusion_kf.h"
@@ -63,7 +64,8 @@ public:
     params_ = params;
   };
 
-  sgtdv_msgs::ConeWithCovStampedArr update(const FusionMsg &fusion_msg);
+  sgtdv_msgs::ConeWithCovStampedArr updateCamera(const sgtdv_msgs::ConeStampedArr &cone_arr);
+  sgtdv_msgs::ConeWithCovStampedArr updateLidar(const sgtdv_msgs::Point2DStampedArr &point_arr);
 
   void updatePose(const sgtdv_msgs::CarPose::ConstPtr &msg)
   {
@@ -97,10 +99,12 @@ private:
   bool findClosestTracked(const Eigen::Ref<const Eigen::Vector2d> &measurement, 
                           std::list<TrackedCone>::iterator *closest_it);
   
+  void kfPredict();
+  void updateTrackedCones();
+  sgtdv_msgs::ConeWithCovStampedArr createOutputMessage(void);
+
   FusionKF KF_obj_;
   Params params_;
-
-  tf::TransformListener listener_;
   
   std::list<TrackedCone> tracked_cones_;
   int num_of_tracked_ = 0;
@@ -113,5 +117,7 @@ private:
 
   std::vector<std::list<Eigen::Vector2d>> camera_data_, lidar_data_, fusion_data_;
   std::ofstream camera_data_file_, lidar_data_file_, fusion_data_file_, map_data_file_;
+
+  tf::TransformListener listener_;
 #endif /* SGT_EXPORT_DATA_CSV */
 };

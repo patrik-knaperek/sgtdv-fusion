@@ -20,7 +20,7 @@ public:
               const Eigen::Ref<const Eigen::Matrix2d> &measurement_model) const;
 
   void updatePose(const double x, const double y, const double theta);
-  void updatePoseDelta();
+  void updateTimeAndPoseDelta();
 
 private:
   Eigen::Matrix2d A_; // motion model matrix

@@ -41,10 +41,6 @@ private:
   ros::Subscriber map_marker_sub_;
 #endif /* SGT_EXPORT_DATA_CSV */
 
-  bool camera_ready_ = false; 
-  bool lidar_ready_ = false;
-  FusionMsg fusion_msg_;
-
   std::string base_frame_id_;
   tf::TransformListener listener_;
 };

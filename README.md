@@ -104,11 +104,6 @@ Requires running:
     <img src="./doc/DV_architecture-cone_detection_data_flow.svg" width="800">
 </p>
 
-<figcaption align = "center">Fusion message decomposition</figcaption>
-<p align="center">
-  <img src="../sgtdv_msgs/doc/sgtdv_msgs-FusionMsg.svg" height="500">
-</p>
-
 <figcaption align = "center">Vitality score diagram</figcaption>
 <p align="center">
   <img src="./doc/SW flowcharts-Cone Detection Fusion__vitality_score.svg" height="600">

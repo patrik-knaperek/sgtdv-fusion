@@ -38,19 +38,9 @@ Fusion::~Fusion()
 #endif /* SGT_EXPORT_DATA_CSV */
 }
 
-sgtdv_msgs::ConeWithCovStampedArr Fusion::update(const FusionMsg &fusion_msg)
+sgtdv_msgs::ConeWithCovStampedArr Fusion::updateCamera(const sgtdv_msgs::ConeStampedArr &cone_arr)
 { 
-  /* KF prediction step for all tracked cones */
-  ROS_DEBUG("KF Predict");
-  KF_obj_.updatePoseDelta();
-  if(num_of_tracked_ > 0)
-  {
-    for(auto& cone : tracked_cones_)
-    {
-      KF_obj_.predict(cone.state, cone.covariance);
-      cone.vitality_score -=1;
-    }
-  }
+  kfPredict();
 
   static std::list<TrackedCone>::iterator associate_it;
   static Eigen::Vector2d camera_obs_act, lidar_obs_act;
@@ -58,7 +48,7 @@ sgtdv_msgs::ConeWithCovStampedArr Fusion::update(const FusionMsg &fusion_msg)
 
   /* search in CAMERA detections */
   ROS_DEBUG("searching in camera detections");
-  for(const auto& observation : fusion_msg.camera_data->cones)
+  for(const auto& observation : cone_arr.cones)
   {
     ROS_DEBUG_STREAM("coords: " << observation.coords);
     /* filter measurement by x axis */
@@ -93,7 +83,7 @@ sgtdv_msgs::ConeWithCovStampedArr Fusion::update(const FusionMsg &fusion_msg)
       /* run KF-update with new detection */
       ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
       KF_obj_.update(associate_it->state, associate_it->covariance, camera_obs_act, camera_cov_act);
-      associate_it->vitality_score += (associate_it->vitality_score >= params_.vitality_score_max) ? 0 : 1;
+      associate_it->vitality_score += (associate_it->vitality_score >= params_.vitality_score_max) ? 0 : 2;
       associate_it->validation_score += (associate_it->validation_score > params_.validation_score_th) ? 0 : 1;
     }
     else
@@ -122,10 +112,23 @@ sgtdv_msgs::ConeWithCovStampedArr Fusion::update(const FusionMsg &fusion_msg)
     }
   #endif /* SGT_EXPORT_DATA_CSV */
 	}
+  
+  updateTrackedCones();
+
+  return createOutputMessage();;
+}
+
+sgtdv_msgs::ConeWithCovStampedArr Fusion::updateLidar(const sgtdv_msgs::Point2DStampedArr &point_arr)
+{
+  kfPredict();
+  
+  static std::list<TrackedCone>::iterator associate_it;
+  static Eigen::Vector2d lidar_obs_act;
+  static Eigen::Matrix2d lidar_cov_act;
 
   /* search in LIDAR detections */
   ROS_DEBUG("searching in lidar detections");
-  for(const auto& observation : fusion_msg.lidar_data->points)
+  for(const auto& observation : point_arr.points)
   {
     /* filter by x axis */
     if(observation.x < params_.lidar_static_tf_x + params_.lidar_x.min 
@@ -153,7 +156,7 @@ sgtdv_msgs::ConeWithCovStampedArr Fusion::update(const FusionMsg &fusion_msg)
     {
       ROS_DEBUG_STREAM("closest:\n" << associate_it->state);
       KF_obj_.update(associate_it->state, associate_it->covariance, lidar_obs_act, lidar_cov_act);
-      associate_it->vitality_score += (associate_it->vitality_score >= params_.vitality_score_max) ? 0 : 1;
+      associate_it->vitality_score += (associate_it->vitality_score >= params_.vitality_score_max) ? 0 : 2;
       associate_it->validation_score += 
         (associate_it->validation_score > params_.validation_score_th) ? 0 : params_.validation_score_th;
       associate_it->stamp = observation.header.stamp;
@@ -169,84 +172,111 @@ sgtdv_msgs::ConeWithCovStampedArr Fusion::update(const FusionMsg &fusion_msg)
     }
   }
 
-  /* update tracked detections */
-  /* - throw away detections that weren't updated several times in a row */
-  ROS_DEBUG("Tracked cones:");
-  for(auto cone_it = tracked_cones_.begin(); cone_it != tracked_cones_.end(); cone_it++)
-  {
-    ROS_DEBUG_STREAM("\n" << cone_it->state);
-    if(!(cone_it->vitality_score > 0)
-      || cone_it->state(0) < params_.camera_static_tf_x + params_.camera_x.min + params_.camera_model(0,0))
-      {
-        auto coneItTemp = cone_it--;
-        tracked_cones_.erase(coneItTemp);
-        
-    #ifdef SGT_EXPORT_DATA_CSV
-      const int idx = std::distance(tracked_cones_.begin(), cone_it);
-      if(camera_data_.at(idx).size() > 0)
-      {
-        writeToDataFile(idx); 
-      }  
+  updateTrackedCones();
 
-      camera_data_.erase(std::next(camera_data_.begin(), idx));
-      lidar_data_.erase(std::next(lidar_data_.begin(), idx)); 
-      fusion_data_.erase(std::next(fusion_data_.begin(), idx)); 
-    #endif /* SGT_EXPORT_DATA_CSV */
+  return createOutputMessage();
+}
+
+void Fusion::kfPredict()
+{
+  /* KF prediction step for all tracked cones */
+  ROS_DEBUG("KF Predict");
+  KF_obj_.updateTimeAndPoseDelta();
+  if (num_of_tracked_ > 0)
+  {
+    for (auto& cone : tracked_cones_)
+    {
+      KF_obj_.predict(cone.state, cone.covariance);
+      cone.vitality_score -=1;
+    }
+  }
+}
+
+void Fusion::updateTrackedCones()
+{
+/* update tracked detections */
+/* - throw away detections that weren't updated several times in a row */
+ROS_DEBUG("Tracked cones:");
+for (auto cone_it = tracked_cones_.begin(); cone_it != tracked_cones_.end(); cone_it++)
+{
+  ROS_DEBUG_STREAM("\n" << cone_it->state);
+  if (!(cone_it->vitality_score > 0)
+    || cone_it->state(0) < params_.camera_static_tf_x + params_.camera_x.min + params_.camera_model(0,0))
+    {
+      auto coneItTemp = cone_it--;
+      tracked_cones_.erase(coneItTemp);
       
-    }
-    else
+  #ifdef SGT_EXPORT_DATA_CSV
+    const int idx = std::distance(tracked_cones_.begin(), cone_it);
+    if (camera_data_.at(idx).size() > 0)
     {
-    #ifdef SGT_EXPORT_DATA_CSV
-      Eigen::Vector2d fusion_obs_map = transformCoords(cone_it->state.head<2>(), cone_it->stamp);
-      if(fusion_obs_map != Eigen::Vector2d::Zero() && cone_it->validation_score > params_.validation_score_th)
-      {
-        fusion_data_.at(std::distance(tracked_cones_.begin(), cone_it)).push_back(fusion_obs_map);
-      }
-    #endif /* SGT_EXPORT_DATA_CSV */
-    }
+      writeToDataFile(idx); 
+    }  
+
+    camera_data_.erase(std::next(camera_data_.begin(), idx));
+    lidar_data_.erase(std::next(lidar_data_.begin(), idx)); 
+    fusion_data_.erase(std::next(fusion_data_.begin(), idx)); 
+  #endif /* SGT_EXPORT_DATA_CSV */
+    
   }
+  else
+  {
+  #ifdef SGT_EXPORT_DATA_CSV
+    Eigen::Vector2d fusion_obs_map = transformCoords(cone_it->state.head<2>(), cone_it->stamp);
+    if (fusion_obs_map != Eigen::Vector2d::Zero() && cone_it->validation_score > params_.validation_score_th)
+    {
+      fusion_data_.at(std::distance(tracked_cones_.begin(), cone_it)).push_back(fusion_obs_map);
+    }
+  #endif /* SGT_EXPORT_DATA_CSV */
+  }
+}
 
-  num_of_tracked_ = tracked_cones_.size();
+num_of_tracked_ = tracked_cones_.size();
+}
 
+sgtdv_msgs::ConeWithCovStampedArr Fusion::createOutputMessage()
+{
   /* create and publish Fusion message */
-  sgtdv_msgs::ConeWithCovStampedArr fused_cones;
-  static sgtdv_msgs::ConeWithCovStamped cone;
+	sgtdv_msgs::ConeWithCovStampedArr fused_cones;
+	static sgtdv_msgs::ConeWithCovStamped cone;
+	
+	try
+	{
+		fused_cones.cones.reserve(num_of_tracked_);
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << '\n';
+	}
+	
+	ROS_DEBUG_STREAM("number of cones: " << num_of_tracked_);
 
-  try
-  {
-    fused_cones.cones.reserve(num_of_tracked_);
-  }
-  catch(const std::exception& e)
-  {
-    std::cerr << e.what() << '\n';
-  }
+	/* sort by X axis */
+		tracked_cones_.sort( 
+					[&](TrackedCone &a, TrackedCone &b) {
+						return a.state(0) < b.state(0);
+					});
+	
+	/* publish tracked detections */
+	int i = 0;
+	for(const auto& tracked : tracked_cones_)
+	{
+		ROS_DEBUG_STREAM("validation score of " << tracked.state << " is " << tracked.validation_score << "\nvitality score is " << tracked.vitality_score);
 
-  ROS_DEBUG_STREAM("number of cones: " << num_of_tracked_);
-
-  /* sort by X axis */
-    tracked_cones_.sort( 
-          [&](TrackedCone &a, TrackedCone &b) {
-            return a.state(0) < b.state(0);
-          });
-
-  /* publish tracked detections */
-  int i = 0;
-  for(const auto& tracked : tracked_cones_)
-  {
-    if(tracked.validation_score > params_.validation_score_th)
-    {
-      cone.coords.header.frame_id = params_.base_frame_id;
-      cone.coords.header.seq = i++;
-      cone.coords.header.stamp = tracked.stamp;
-      cone.coords.x = tracked.state(0);
-      cone.coords.y = tracked.state(1);
+		if (tracked.validation_score > params_.validation_score_th)
+		{
+			cone.coords.header.frame_id = params_.base_frame_id;
+			cone.coords.header.seq = i++;
+			cone.coords.header.stamp = tracked.stamp;
+			cone.coords.x = tracked.state(0);
+			cone.coords.y = tracked.state(1);
       cone.covariance = {tracked.covariance(0,0), tracked.covariance(0,1), tracked.covariance(1,0), tracked.covariance(1,1)};
-      cone.color = tracked.color;
+			cone.color = tracked.color;
 
-      fused_cones.cones.push_back(cone);
-    }
-  }
-  return fused_cones;
+			fused_cones.cones.push_back(cone);
+		}
+	}
+	return fused_cones;
 }
 
 bool Fusion::findClosestTracked(const Eigen::Ref<const Eigen::Vector2d> &measurement, 

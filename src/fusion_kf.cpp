@@ -74,7 +74,7 @@ void FusionKF::updatePose(const double x, const double y, const double theta)
 }
 
 /// @brief Update variables for differential prediction motion model
-void FusionKF::updatePoseDelta()
+void FusionKF::updateTimeAndPoseDelta()
 {
   pos_prev_ = pos_act_;
   rot_prev_ = rot_act_;

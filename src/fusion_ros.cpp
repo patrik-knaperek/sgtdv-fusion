@@ -112,17 +112,13 @@ void FusionROS::getSensorFrameTF(Fusion::Params* params) const
 
 void FusionROS::cameraCallback(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg)
 {
-  if(camera_ready_ && !lidar_ready_) return;
-
   const int cones_count = msg->cones.size();
   if(!cones_count) return;
 
-  camera_ready_ = true;
-
   geometry_msgs::PointStamped coords_msg_frame, coords_base_frame;
-  auto msg_base_frame = boost::make_shared<sgtdv_msgs::ConeStampedArr>();
+  sgtdv_msgs::ConeStampedArr cones_base_frame;
   sgtdv_msgs::ConeStamped cone;
-  msg_base_frame->cones.reserve(cones_count);
+  cones_base_frame.cones.reserve(cones_count);
 
   for(const auto &cone_it : msg->cones)
   {
@@ -143,61 +139,40 @@ void FusionROS::cameraCallback(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg)
     cone.coords.x = coords_base_frame.point.x;
     cone.coords.y = coords_base_frame.point.y;
     cone.color = cone_it.color;
-    msg_base_frame->cones.push_back(cone);
+    cones_base_frame.cones.push_back(cone);
   }
 
-  if(msg_base_frame->cones.size() > 0)
+  if(cones_base_frame.cones.size() > 0)
   {
-    if(camera_ready_ && lidar_ready_)
-    {
-      camera_ready_ = false;
-      lidar_ready_ = false;
-      fusion_msg_.camera_data = msg_base_frame;
-      ROS_DEBUG_STREAM("fusion msg lidar size: " << fusion_msg_.lidar_data->points.size());
-      ROS_DEBUG_STREAM("fusion msg camera size: " << fusion_msg_.camera_data->cones.size());
-    #ifdef SGT_DEBUG_STATE
-      sgtdv_msgs::DebugState state;
-      state.stamp = ros::Time::now();
-      state.working_state = 1;
-      vis_debug_pub_.publish(state);
-    #endif
-	
-      const auto fused_cones = fusion_obj_.update(fusion_msg_);
+  #ifdef SGT_DEBUG_STATE
+    sgtdv_msgs::DebugState state;
+    state.stamp = ros::Time::now();
+    state.working_state = 1;
+    vis_debug_pub_.publish(state);
+  #endif
 
-      cones_pub_.publish(fused_cones);
+    const auto fused_cones = fusion_obj_.updateCamera(cones_base_frame);
 
-    #ifdef SGT_DEBUG_STATE
-      state.stamp = ros::Time::now();
-      state.working_state = 0;
-      state.num_of_cones = static_cast<uint32_t>(fused_cones.cones.size());
-      vis_debug_pub_.publish(state);
-    #endif
-    }
-    else
-    {
-      fusion_msg_.camera_data = msg_base_frame;
-    }
+    cones_pub_.publish(fused_cones);
+
+  #ifdef SGT_DEBUG_STATE
+    state.stamp = ros::Time::now();
+    state.working_state = 0;
+    state.num_of_cones = static_cast<uint32_t>(fused_cones.cones.size());
+    vis_debug_pub_.publish(state);
+  #endif
   }
-  else
-  {
-    camera_ready_ = false;
-    lidar_ready_ = false;
-  }
-  }
+}
 
 void FusionROS::lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg)
   {
-  if(lidar_ready_ && !camera_ready_) return;
-
   const int points_count = msg->points.size();
   if(!points_count) return;
 
-  lidar_ready_ = true;
-
   geometry_msgs::PointStamped coords_msg_frame, coords_base_frame;
-  auto msg_base_frame = boost::make_shared<sgtdv_msgs::Point2DStampedArr>();
+  sgtdv_msgs::Point2DStampedArr points_base_frame;
   sgtdv_msgs::Point2DStamped point;
-  msg_base_frame->points.reserve(points_count);
+  points_base_frame.points.reserve(points_count);
 
   for(const auto &point_it : msg->points)
   {
@@ -214,17 +189,8 @@ void FusionROS::lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg
     point.header = coords_base_frame.header;
     point.x = coords_base_frame.point.x;
     point.y = coords_base_frame.point.y;
-    msg_base_frame->points.push_back(point);
+    points_base_frame.points.push_back(point);
   }
-
-  if(camera_ready_ && lidar_ready_)
-  {
-    camera_ready_ = false;
-    lidar_ready_ = false;
-    fusion_msg_.lidar_data = msg_base_frame;
-    ROS_DEBUG_STREAM("fusion msg lidar size: " << fusion_msg_.lidar_data->points.size());
-    ROS_DEBUG_STREAM("fusion msg camera size: " << fusion_msg_.camera_data->cones.size());
-
   #ifdef SGT_DEBUG_STATE
     sgtdv_msgs::DebugState state;
     state.stamp = ros::Time::now();
@@ -232,7 +198,7 @@ void FusionROS::lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg
     vis_debug_pub_.publish(state);
   #endif
 
-    const auto fused_cones = fusion_obj_.update(fusion_msg_);
+    const auto fused_cones = fusion_obj_.updateLidar(points_base_frame);
 
     cones_pub_.publish(fused_cones);
 
@@ -242,12 +208,7 @@ void FusionROS::lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg
     state.num_of_cones = static_cast<uint32_t>(fused_cones.cones.size());
     vis_debug_pub_.publish(state);
   #endif
-  }
-  else
-  {
-    fusion_msg_.lidar_data = msg_base_frame;
-  }
-  }
+}
 
 void FusionROS::poseCallback(const sgtdv_msgs::CarPose::ConstPtr &msg)
 {
