@@ -28,7 +28,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/../
 )
 
-add_executable(${PROJECT_NAME} src/fusion.cpp src/fusion_node.cpp src/fusion_synch.cpp src/fusion_kf.cpp)
+add_executable(${PROJECT_NAME} src/fusion.cpp src/fusion_node.cpp src/fusion_ros.cpp src/fusion_kf.cpp)
 
 target_link_libraries(fusion
   ${catkin_LIBRARIES}

@@ -8,11 +8,11 @@
 #include <tf/transform_listener.h>
 #include "fusion.h"
 
-class FusionSynch
+class FusionROS
 {
 public:
-  explicit FusionSynch(ros::NodeHandle& handle);
-  ~FusionSynch() = default;
+  explicit FusionROS(ros::NodeHandle& handle);
+  ~FusionROS() = default;
 
 private:
   #ifdef SGT_EXPORT_DATA_CSV
@@ -22,9 +22,18 @@ private:
   void cameraCallback(const sgtdv_msgs::ConeStampedArr::ConstPtr &msg);
   void lidarCallback(const sgtdv_msgs::Point2DStampedArr::ConstPtr &msg);
   void poseCallback(const sgtdv_msgs::CarPose::ConstPtr &msg);
-  geometry_msgs::PointStamped transformCoords(const geometry_msgs::PointStamped& coords_child_frame) const;
+
+  void loadParams(const ros::NodeHandle &handle);
+  void getSensorFrameTF(Fusion::Params* params) const;
+  
   
   Fusion fusion_obj_;
+  
+  ros::Publisher cones_pub_;
+#ifdef SGT_DEBUG_STATE
+  ros::Publisher vis_debug_pub_;
+#endif		
+
   ros::Subscriber lidar_sub_;
   ros::Subscriber camera_sub_;
   ros::Subscriber pose_sub_;

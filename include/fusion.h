@@ -16,6 +16,7 @@
 
 /* SGT */
 #include <sgtdv_msgs/CarPose.h>
+#include <sgtdv_msgs/ConeWithCovStampedArr.h>
 #include "messages.h"
 #include "SGT_Macros.h"
 #include "SGT_Utils.h"
@@ -24,31 +25,13 @@
 class Fusion
 {
 public:
-  Fusion(const ros::NodeHandle& handle, const ros::Publisher& publisher
-  #ifdef SGT_DEBUG_STATE
-  , const ros::Publisher& vis_debug_pub
-  #endif /* SGT_DEBUG_STATE */
-  ); 
-  ~Fusion();
-  
-#ifdef SGT_EXPORT_DATA_CSV
-  void openDataFiles(void);
-  void writeMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg);
-#endif
-
-  void update(const FusionMsg &fusion_msg);
-
-  void updatePose(const sgtdv_msgs::CarPose::ConstPtr &msg)
-  {
-    KF_obj_.updatePose(msg->position.x, msg->position.y, msg->yaw);
-  };
-  
-private:
   struct Params
   {
     std::string base_frame_id;
     std::string camera_frame_id;
     std::string lidar_frame_id;
+    double camera_static_tf_x;
+    double lidar_static_tf_x;
     float dist_th;
     int n_of_models;
     Eigen::Matrix<double, Eigen::Dynamic, 4> camera_model;
@@ -66,6 +49,28 @@ private:
   #endif
   };
 
+public:
+  Fusion(); 
+  ~Fusion();
+  
+#ifdef SGT_EXPORT_DATA_CSV
+  void openDataFiles(void);
+  void writeMapToFile(const visualization_msgs::MarkerArray::ConstPtr &msg);
+#endif
+
+  void setParams(const Params& params)
+  {
+    params_ = params;
+  };
+
+  sgtdv_msgs::ConeWithCovStampedArr update(const FusionMsg &fusion_msg);
+
+  void updatePose(const sgtdv_msgs::CarPose::ConstPtr &msg)
+  {
+    KF_obj_.updatePose(msg->position.x, msg->position.y, msg->yaw);
+  };
+
+private:
   struct TrackedCone
   {
     TrackedCone(const Eigen::Ref<const Eigen::Vector2d>& coords, const int vitality_init) :
@@ -86,24 +91,19 @@ private:
   };
 
 private:
-  void getSensorFrameTF(void);
   /*float MahalanDist(const Eigen::Ref<const Eigen::Vector2d> &set_mean, const Eigen::Ref<const Eigen::Matrix2d> &set_cov,
           const Eigen::Ref<const Eigen::Vector2d> &obs_mean, const Eigen::Ref<const Eigen::Matrix2d> &obs_cov);
           */
   bool findClosestTracked(const Eigen::Ref<const Eigen::Vector2d> &measurement, 
                           std::list<TrackedCone>::iterator *closest_it);
-  void loadParams(const ros::NodeHandle &handle);
   
   FusionKF KF_obj_;
   Params params_;
-  
-  ros::Publisher publisher_;
 
+  tf::TransformListener listener_;
+  
   std::list<TrackedCone> tracked_cones_;
   int num_of_tracked_ = 0;
-
-  double camera_frame_tf_x_, lidar_frame_tf_x_;
-  tf::TransformListener listener_;
   
 #ifdef SGT_EXPORT_DATA_CSV
   bool openFile(std::ofstream& file, const std::string& path);
@@ -114,8 +114,4 @@ private:
   std::vector<std::list<Eigen::Vector2d>> camera_data_, lidar_data_, fusion_data_;
   std::ofstream camera_data_file_, lidar_data_file_, fusion_data_file_, map_data_file_;
 #endif /* SGT_EXPORT_DATA_CSV */
-
-#ifdef SGT_DEBUG_STATE
-  ros::Publisher vis_debug_publisher_;
-#endif		
 };
