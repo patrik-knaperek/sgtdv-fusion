@@ -12,16 +12,16 @@
 
 FusionROS::FusionROS(ros::NodeHandle& handle)
   /* ROS interface init */
-  : cones_pub_(handle.advertise<sgtdv_msgs::ConeWithCovStampedArr>("fusion_cones", 1))
+  : cones_pub_(handle.advertise<sgtdv_msgs::ConeWithCovStampedArr>("fusion/cones", 1))
 #ifdef SGT_DEBUG_STATE
-  , vis_debug_pub_(handle.advertise<sgtdv_msgs::DebugState>("fusion_debug_state", 2))
+  , vis_debug_pub_(handle.advertise<sgtdv_msgs::DebugState>("fusion/debug_state", 2))
 #endif /* SGT_DEBUG_STATE */
 #ifdef SGT_EXPORT_DATA_CSV
   , map_marker_sub_(handle.subscribe("fssim/track/markers", 1, &FusionROS::mapCallback, this))
 #endif /* SGT_EXPORT_DATA_CSV */ 
-  , lidar_sub_(handle.subscribe("lidar_cones", 1, &FusionROS::lidarCallback, this))
-  , camera_sub_(handle.subscribe("camera_cones", 1, &FusionROS::cameraCallback, this))
-  , pose_sub_(handle.subscribe("pose_estimate", 1, &FusionROS::poseCallback, this))
+  , lidar_sub_(handle.subscribe("lidar/cones", 1, &FusionROS::lidarCallback, this))
+  , camera_sub_(handle.subscribe("camera/cones", 1, &FusionROS::cameraCallback, this))
+  , pose_sub_(handle.subscribe("odometry/pose", 1, &FusionROS::poseCallback, this))
 {
   loadParams(handle);
 }
