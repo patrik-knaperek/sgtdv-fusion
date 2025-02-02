@@ -2,7 +2,7 @@ distance_tolerance: 0.35
 vitality_score:
   init: 2
   max: 6
-validation_score_treshold: 4
+validation_score_th: 4
 
 base_frame_id: base_link
 camera:

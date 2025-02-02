@@ -87,7 +87,7 @@ private:
     uint8_t color;			    // 'y' - yellow; 'b' - blue; 's' - orange small; 'g' - orange big
     ros::Time stamp;
     int vitality_score;		  // Value is incremented after each measurement association, decremented in each update cycle. Cones with score <= 0 are excluded from track list.
-    int validation_score;	  // Value is incremented after each measurement association. Only cones with score > treshold are published.
+    int validation_score;	  // Value is incremented after each measurement association. Only cones with score > threshold are published.
   };
 
 private:

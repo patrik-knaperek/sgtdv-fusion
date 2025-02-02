@@ -4,7 +4,7 @@ base_frame_id: gotthard/base_link
 vitality_score:
   init: 2
   max: 6
-validation_score_treshold: 4
+validation_score_th: 4
 
 camera:
   frame_id: fssim/vehicle/camera_center_link

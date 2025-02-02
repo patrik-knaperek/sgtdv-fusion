@@ -47,7 +47,7 @@ void FusionROS::loadParams(const ros::NodeHandle& handle)
   Utils::loadParam(handle,"/number_of_models", &params.n_of_models);
   Utils::loadParam(handle, "/vitality_score/init", &params.vitality_score_init);
   Utils::loadParam(handle, "/vitality_score/max", &params.vitality_score_max);
-  Utils::loadParam(handle, "/validation_score_treshold", &params.validation_score_th);
+  Utils::loadParam(handle, "/validation_score_th", &params.validation_score_th);
 
   params.camera_model = Eigen::MatrixXd::Zero(params.n_of_models, 5);
   params.camera_model.block(0,0,params.n_of_models,2) 
