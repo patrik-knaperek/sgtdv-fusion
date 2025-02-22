@@ -7,7 +7,16 @@
   <rosparam command="load" file="$(find fusion)/params/sensor_model_3.yaml"/>
   
   <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_to_base_link" 
-  args="0.319 0 0 0 0 0 base_link lidar" />
+    args="0.058 0 0.197 0 0 0 base_link lidar" />
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="camera_to_base_link" 
+    args="0 0 0.792 0 0 0 world camera_center" />
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="camera_left_footprint_to_camera_left" 
+    args="0 0 -0.792 0 0 0 camera_left camera_left_footprint" />
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="lidar_footprint_to_lidar" 
+    args="0 0 -0.197 0 0 0 lidar lidar_footprint" />
 
   <include file="$(find camera_driver)/launch/camera_driver.launch"/>
   <include file="$(find lidar_cone_detection)/launch/lidar_cone_detection.launch"/>

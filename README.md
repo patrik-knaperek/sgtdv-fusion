@@ -47,12 +47,14 @@ For this purpose, use the `measurement_models` package. Move the output stored i
 ### ROS Interface
 
 **Subscribes topics:**
-* `/camera/cones` [[`sgtdv_msgs/ConeStampedArr`](../sgtdv_msgs/msg/ConeStampedArr.msg)] : detected cones from stereocamera in `camera_center` frame
-* `/lidar/cones` [[`sgtdv_msgs/Point2DStampedArr`](../sgtdv_msgs/msg/Point2DStampedArr.msg)] : detected cones from LiDAR in `lidar` frame
+* `/camera/cones` [[`sgtdv_msgs/ConeStampedArr`](../sgtdv_msgs/msg/ConeStampedArr.msg)] : detected cones from stereocamera in `camera_left_footprint` frame
+* `/lidar/cones` [[`sgtdv_msgs/Point2DStampedArr`](../sgtdv_msgs/msg/Point2DStampedArr.msg)] : detected cones from LiDAR in `lidar_footprint` frame
 * `/odometry/pose` [[`sgtdv_msgs/CarPose`](../sgtdv_msgs/msg/CarPose.msg)] : current car pose
 
 *If `SGT_EXPORT_DATA_CSV` macro enabled*
 * `/fssim/track/markers` [[`visualization_msgs/MarkerArray`](/opt/ros/noetic/share/visualization_msgs/msg/MarkerArray.msg)] : map (cones) coordinates (FSSIM setup)
+
+*Note: Since the cone positions are represented in 2D only, the `_footprint` reference frames serve for cone detections representation, meaning the projection of 3D position coordinates to the 2D ground plane (0 z-coordinate).*
 
 **Published topics:**
 * `/fusion/cones` [[`sgtdv_msgs/ConeWithCovStampedArr`](../sgtdv_msgs/msg/ConeWithCovStampedArr.msg)] : fused cones in `base_link` frame
@@ -141,8 +143,7 @@ Requires running:
 
  Notes:
   - if launching on rosbag data, the `"use_sim_time"` parameter set has to be uncommented
-  - transformations from sensor frames to vehicle frame (`base_link`) must be set according to real setup; format: `args="tx ty tz rx ry rz parent_frame child_frame"`
-  - transformation from `camera_center` has to have `tz=0`
+  - static transformations from sensor frames to vehicle frame (`base_link`) must be set according to real setup; format: `args="tx ty tz rx ry rz parent_frame child_frame"`
 
 ### Launch configuration
 * `fusion_rc.yaml`: RC car setup
