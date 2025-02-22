@@ -6,7 +6,7 @@ validation_score_th: 4
 
 base_frame_id: base_link
 camera:
-  frame_id: camera_center
+  frame_id: camera_left_footprint
   fov:
     x:
       min: 2.4
@@ -15,7 +15,7 @@ camera:
       min: -0.533
       max: 0.570
 lidar:
-  frame_id: lidar
+  frame_id: lidar_footprint
   fov:
     x:
       min: 0.78
